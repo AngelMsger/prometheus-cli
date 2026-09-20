@@ -1,0 +1,48 @@
+{
+  "name": "@angelmsger/prometheus-cli",
+  "version": "0.1.0",
+  "description": "Query Prometheus from the command line for coding agents: PromQL instant and range queries, metric/label/series discovery, scrape targets, rules and alerts, with structured JSON output.",
+  "keywords": [
+    "prometheus",
+    "promql",
+    "metrics",
+    "monitoring",
+    "observability",
+    "alerting",
+    "timeseries",
+    "cli",
+    "agent",
+    "claude"
+  ],
+  "homepage": "https://github.com/AngelMsger/prometheus-cli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AngelMsger/prometheus-cli.git"
+  },
+  "license": "MIT",
+  "bin": {
+    "prometheus-cli": "bin/prometheus-cli.js"
+  },
+  "main": "install.js",
+  "scripts": {
+    "postinstall": "node install.js",
+    "test": "node --test install.test.js"
+  },
+  "files": [
+    "bin/",
+    "install.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}

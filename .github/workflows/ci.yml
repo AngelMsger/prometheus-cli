@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: cli docs up to date
+        run: |
+          go run ./cmd/gen-docs
+          if ! git diff --quiet -- docs/cli; then
+            echo "docs/cli is stale — run 'make docs' and commit the result:"
+            git diff --stat -- docs/cli
+            exit 1
+          fi
+
+      - name: unit tests
+        run: go test ./...
+
+      - name: end-to-end tests (mock server)
+        run: ./scripts/e2e.sh
+
+  windows:
+    name: Windows runtime and npm launcher
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: unit tests on Windows
+        run: go test ./...
+
+      - name: npm installer mapping tests
+        working-directory: build/npm
+        run: npm test
+
+      - name: PowerShell and npm launcher smoke
+        shell: pwsh
+        run: |
+          $binary = Join-Path $env:RUNNER_TEMP 'prometheus-cli.exe'
+          go build -o $binary ./cmd/prometheus-cli
+          & $binary version
+          if ($LASTEXITCODE -ne 0) { throw 'native Windows binary failed' }
+
+          $completion = & $binary completion powershell | Out-String
+          if ($LASTEXITCODE -ne 0 -or $completion -notmatch 'prometheus-cli') {
+            throw 'PowerShell completion generation failed'
+          }
+
+          $npmBinaryDir = Join-Path $PWD 'build/npm/binary'
+          New-Item -ItemType Directory -Force $npmBinaryDir | Out-Null
+          Copy-Item $binary (Join-Path $npmBinaryDir 'prometheus-cli.exe') -Force
+          node build/npm/bin/prometheus-cli.js version
+          if ($LASTEXITCODE -ne 0) { throw 'npm launcher failed' }

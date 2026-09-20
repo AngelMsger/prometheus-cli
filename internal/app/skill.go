@@ -1,0 +1,583 @@
+package app
+
+import (
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	prometheuscli "github.com/angelmsger/prometheus-cli"
+	"github.com/angelmsger/prometheus-cli/pkg/constants"
+	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
+	"github.com/spf13/cobra"
+)
+
+// skillResult is the result shape for a skill install / uninstall / path entry.
+type skillResult struct {
+	Agent     string `json:"agent,omitempty"`
+	Path      string `json:"path"`
+	Status    string `json:"status"`
+	Version   string `json:"version,omitempty"`
+	Alignment string `json:"alignment,omitempty"`
+	Files     int    `json:"files,omitempty"`
+}
+
+type skillLoadState struct {
+	Loaded  bool
+	Version string
+	Status  string
+}
+
+// newSkillCmd manages the companion `prometheus` Skill, which is embedded in
+// the binary so it always matches the installed CLI version.
+func newSkillCmd(s *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "skill",
+		Short: "Install the companion Skill for coding agents",
+	}
+	cmd.AddCommand(
+		newSkillInstallCmd(s),
+		newSkillUninstallCmd(s),
+		newSkillPathCmd(s),
+		newSkillStatusCmd(s),
+		newSkillShowCmd(),
+	)
+	return cmd
+}
+
+func newSkillStatusCmd(s *appState) *cobra.Command {
+	var project bool
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Report loaded, installed and embedded Skill versions",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			load := currentSkillLoadState()
+			installs, err := inspectSkillInstalls(project)
+			if err != nil {
+				return err
+			}
+			anyCurrent := false
+			needsRefresh := false
+			for _, install := range installs {
+				anyCurrent = anyCurrent || install.Alignment == "current"
+				needsRefresh = needsRefresh || (install.Status == "installed" && install.Alignment != "current")
+			}
+
+			nextSteps := []string{}
+			switch {
+			case load.Status == "current" && needsRefresh:
+				nextSteps = []string{constants.AppName + " skill install"}
+			case load.Status == "current":
+			case load.Loaded && anyCurrent:
+				nextSteps = []string{"reload the agent context so it loads the refreshed Skill"}
+			case load.Loaded:
+				nextSteps = []string{
+					constants.AppName + " skill install",
+					"reload the agent context so it loads the refreshed Skill",
+				}
+			case anyCurrent:
+				nextSteps = []string{"reload the agent context before composing commands"}
+			default:
+				nextSteps = []string{
+					constants.AppName + " skill install",
+					"reload the agent context so it loads the installed Skill",
+				}
+			}
+			next := ""
+			if len(nextSteps) > 0 {
+				next = nextSteps[0]
+			}
+
+			return s.emit(map[string]any{
+				"loaded":           load.Loaded,
+				"loaded_env":       envSkillLoaded,
+				"loaded_version":   load.Version,
+				"loaded_status":    load.Status,
+				"embedded_version": embeddedSkillVersion(),
+				"installs":         installs,
+				"next":             next,
+				"next_steps":       nextSteps,
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&project, "project", false,
+		"check each agent's project skills directory instead of $HOME")
+	return cmd
+}
+
+// agentSpec describes where a coding agent loads Skills from, and how to tell
+// that the agent is in use on this machine / in this project.
+type agentSpec struct {
+	id            string   // stable --agent id
+	homeSub       string   // dir under $HOME; global dest is $HOME/<homeSub>/skills/<name>
+	homeMarkers   []string // paths under $HOME proving the agent is installed
+	projectSkills string   // skills dir relative to the project root
+	projectMarks  []string // paths under the cwd proving the agent is used here
+}
+
+// agentSpecs lists every coding agent the Skill can be installed for.
+// Paths follow the Agent Skills ecosystem (vercel-labs/skills) and each
+// product's documented native directory.
+var agentSpecs = []agentSpec{
+	{
+		id:            "claude-code",
+		homeSub:       ".claude",
+		homeMarkers:   []string{".claude"},
+		projectSkills: ".claude/skills",
+		projectMarks:  []string{".claude"},
+	},
+	{
+		id:            "codex",
+		homeSub:       ".codex",
+		homeMarkers:   []string{".codex"},
+		projectSkills: ".agents/skills",
+		projectMarks:  []string{".agents", "AGENTS.md"},
+	},
+	{
+		id:            "cursor",
+		homeSub:       ".cursor",
+		homeMarkers:   []string{".cursor"},
+		projectSkills: ".cursor/skills",
+		projectMarks:  []string{".cursor"},
+	},
+	{
+		// Shared open-standard tree read by Cursor, Cline, Gemini, Copilot,
+		// OpenCode, Amp, and many others (in addition to their native paths).
+		id:            "agents",
+		homeSub:       ".agents",
+		homeMarkers:   []string{".agents"},
+		projectSkills: ".agents/skills",
+		projectMarks:  []string{".agents", "AGENTS.md"},
+	},
+	{
+		id:            "gemini",
+		homeSub:       ".gemini",
+		homeMarkers:   []string{".gemini"},
+		projectSkills: ".gemini/skills",
+		projectMarks:  []string{".gemini"},
+	},
+	{
+		id:            "github-copilot",
+		homeSub:       ".copilot",
+		homeMarkers:   []string{".copilot"},
+		projectSkills: ".agents/skills",
+		projectMarks:  []string{".github", ".agents"},
+	},
+	{
+		id:            "opencode",
+		homeSub:       ".config/opencode",
+		homeMarkers:   []string{".config/opencode"},
+		projectSkills: ".opencode/skills",
+		projectMarks:  []string{".opencode"},
+	},
+	{
+		id:            "continue",
+		homeSub:       ".continue",
+		homeMarkers:   []string{".continue"},
+		projectSkills: ".continue/skills",
+		projectMarks:  []string{".continue"},
+	},
+	{
+		id:            "windsurf",
+		homeSub:       ".codeium/windsurf",
+		homeMarkers:   []string{".codeium/windsurf"},
+		projectSkills: ".windsurf/skills",
+		projectMarks:  []string{".windsurf", ".codeium"},
+	},
+	{
+		id:            "grok",
+		homeSub:       ".grok",
+		homeMarkers:   []string{".grok"},
+		projectSkills: ".grok/skills",
+		projectMarks:  []string{".grok"},
+	},
+	{
+		id:            "pi",
+		homeSub:       ".pi/agent",
+		homeMarkers:   []string{".pi"},
+		projectSkills: ".pi/skills",
+		projectMarks:  []string{".pi"},
+	},
+	{
+		id:            "kilo",
+		homeSub:       ".kilocode",
+		homeMarkers:   []string{".kilocode"},
+		projectSkills: ".kilocode/skills",
+		projectMarks:  []string{".kilocode"},
+	},
+	{
+		id:            "roo",
+		homeSub:       ".roo",
+		homeMarkers:   []string{".roo"},
+		projectSkills: ".roo/skills",
+		projectMarks:  []string{".roo"},
+	},
+}
+
+func agentByID(id string) (agentSpec, bool) {
+	for _, s := range agentSpecs {
+		if s.id == id {
+			return s, true
+		}
+	}
+	return agentSpec{}, false
+}
+
+func agentIDs() []string {
+	ids := make([]string, len(agentSpecs))
+	for i, s := range agentSpecs {
+		ids[i] = s.id
+	}
+	return ids
+}
+
+// skillDest is a resolved install location for the Skill.
+type skillDest struct {
+	agent string // agent id, or "" for an explicit --dir target
+	path  string // the `prometheus` directory itself
+}
+
+// agentDest returns the `prometheus` Skill directory for an agent.
+func agentDest(spec agentSpec, project bool) (string, error) {
+	if project {
+		return filepath.Join(spec.projectSkills, "prometheus"), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", cerrors.Wrap(err, cerrors.CategoryConfig, "NO_HOME",
+			"could not determine the home directory")
+	}
+	return filepath.Join(home, spec.homeSub, "skills", "prometheus"), nil
+}
+
+// detectAgents returns the agents whose directories exist — globally (under
+// $HOME) or, with project set, in the current directory.
+func detectAgents(project bool) []agentSpec {
+	var found []agentSpec
+	base := "."
+	if !project {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil
+		}
+		base = home
+	}
+	for _, spec := range agentSpecs {
+		markers := spec.homeMarkers
+		if project {
+			markers = spec.projectMarks
+		}
+		for _, m := range markers {
+			if _, err := os.Stat(filepath.Join(base, m)); err == nil {
+				found = append(found, spec)
+				break
+			}
+		}
+	}
+	return found
+}
+
+// resolveTargets maps the install/uninstall flags to concrete destinations.
+func resolveTargets(agents []string, project bool, dir string) ([]skillDest, error) {
+	if dir != "" {
+		if len(agents) > 0 || project {
+			return nil, cerrors.New(cerrors.CategoryUsage, "SKILL_FLAGS",
+				"--dir cannot be combined with --agent or --project").
+				WithHint("--dir is an explicit, agent-agnostic path; drop --agent/--project")
+		}
+		return []skillDest{{path: filepath.Join(dir, "prometheus")}}, nil
+	}
+
+	var specs []agentSpec
+	if len(agents) > 0 {
+		for _, a := range agents {
+			spec, ok := agentByID(a)
+			if !ok {
+				return nil, cerrors.Newf(cerrors.CategoryUsage, "SKILL_AGENT",
+					"unknown agent %q", a).
+					WithHint("supported agents: " + strings.Join(agentIDs(), ", "))
+			}
+			specs = append(specs, spec)
+		}
+	} else {
+		specs = detectAgents(project)
+		if len(specs) == 0 {
+			return nil, cerrors.New(cerrors.CategoryUsage, "SKILL_NO_AGENT",
+				"no coding agent detected").
+				WithHint("pass --agent (" + strings.Join(agentIDs(), ", ") +
+					") or --dir <path> to choose a target explicitly")
+		}
+	}
+
+	var dests []skillDest
+	for _, spec := range specs {
+		p, err := agentDest(spec, project)
+		if err != nil {
+			return nil, err
+		}
+		dests = append(dests, skillDest{agent: spec.id, path: p})
+	}
+	return dests, nil
+}
+
+func newSkillInstallCmd(s *appState) *cobra.Command {
+	var (
+		project bool
+		dir     string
+		agents  []string
+	)
+	cmd := &cobra.Command{
+		Use:   "install",
+		Short: "Deploy the embedded Skill into a coding agent's skills directory",
+		Long: "Write the companion `prometheus` Skill — bundled inside this binary —\n" +
+			"into a coding agent's skills directory. With no flags it probes for\n" +
+			"installed agents (" + strings.Join(agentIDs(), ", ") + ") and installs\n" +
+			"into each one found. Re-run it after upgrading the CLI to refresh the\n" +
+			"Skill to the matching version, then reload the agent context.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			dests, err := resolveTargets(agents, project, dir)
+			if err != nil {
+				return err
+			}
+			results := make([]skillResult, 0, len(dests))
+			for _, d := range dests {
+				n, err := writeSkill(d.path)
+				if err != nil {
+					return err
+				}
+				results = append(results, skillResult{
+					Agent: d.agent, Path: d.path, Status: "installed",
+					Version: embeddedSkillVersion(), Alignment: "current", Files: n,
+				})
+			}
+			return s.emit(results)
+		},
+	}
+	cmd.Flags().BoolVar(&project, "project", false,
+		"install into each agent's project skills directory instead of $HOME")
+	cmd.Flags().StringVar(&dir, "dir", "",
+		"explicit skills base directory; installs into <dir>/prometheus")
+	cmd.Flags().StringSliceVar(&agents, "agent", nil,
+		"target agents instead of auto-detecting ("+strings.Join(agentIDs(), ", ")+")")
+	return cmd
+}
+
+func newSkillUninstallCmd(s *appState) *cobra.Command {
+	var (
+		project bool
+		dir     string
+		agents  []string
+	)
+	cmd := &cobra.Command{
+		Use:   "uninstall",
+		Short: "Remove the companion Skill from a coding agent's skills directory",
+		Long: "Delete a previously installed `prometheus` Skill. With no flags it\n" +
+			"probes for installed agents (" + strings.Join(agentIDs(), ", ") + ")\n" +
+			"and removes the Skill from each one found.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			dests, err := resolveTargets(agents, project, dir)
+			if err != nil {
+				return err
+			}
+			results := make([]skillResult, 0, len(dests))
+			for _, d := range dests {
+				if _, statErr := os.Stat(filepath.Join(d.path, "SKILL.md")); statErr != nil {
+					results = append(results, skillResult{
+						Agent: d.agent, Path: d.path, Status: "not_installed",
+					})
+					continue
+				}
+				if err := os.RemoveAll(d.path); err != nil {
+					return cerrors.Wrap(err, cerrors.CategoryConfig, "SKILL_REMOVE",
+						"failed to remove the Skill directory")
+				}
+				results = append(results, skillResult{
+					Agent: d.agent, Path: d.path, Status: "removed",
+				})
+			}
+			return s.emit(results)
+		},
+	}
+	cmd.Flags().BoolVar(&project, "project", false,
+		"remove from each agent's project skills directory instead of $HOME")
+	cmd.Flags().StringVar(&dir, "dir", "",
+		"explicit skills base directory; removes <dir>/prometheus")
+	cmd.Flags().StringSliceVar(&agents, "agent", nil,
+		"target agents instead of auto-detecting ("+strings.Join(agentIDs(), ", ")+")")
+	return cmd
+}
+
+func newSkillPathCmd(s *appState) *cobra.Command {
+	var (
+		project bool
+		dir     string
+		agents  []string
+	)
+	cmd := &cobra.Command{
+		Use:   "path",
+		Short: "Print Skill paths, installation state and version alignment",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			var dests []skillDest
+			if dir != "" || len(agents) > 0 {
+				resolved, err := resolveTargets(agents, project, dir)
+				if err != nil {
+					return err
+				}
+				dests = resolved
+			} else {
+				// No flags: list every known agent so the user sees all options.
+				for _, spec := range agentSpecs {
+					p, err := agentDest(spec, project)
+					if err != nil {
+						return err
+					}
+					dests = append(dests, skillDest{agent: spec.id, path: p})
+				}
+				sort.Slice(dests, func(i, j int) bool { return dests[i].agent < dests[j].agent })
+			}
+			results := make([]skillResult, 0, len(dests))
+			for _, d := range dests {
+				results = append(results, inspectSkillInstall(d.agent, d.path))
+			}
+			return s.emit(results)
+		},
+	}
+	cmd.Flags().BoolVar(&project, "project", false,
+		"use the project skills directories instead of $HOME")
+	cmd.Flags().StringVar(&dir, "dir", "", "explicit skills base directory")
+	cmd.Flags().StringSliceVar(&agents, "agent", nil,
+		"limit to specific agents ("+strings.Join(agentIDs(), ", ")+")")
+	return cmd
+}
+
+func newSkillShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show",
+		Short: "Print the embedded SKILL.md to stdout",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			data, err := prometheuscli.SkillFS.ReadFile(prometheuscli.SkillRoot + "/SKILL.md")
+			if err != nil {
+				return cerrors.Wrap(err, cerrors.CategoryInternal, "SKILL_READ",
+					"failed to read the embedded Skill")
+			}
+			_, err = os.Stdout.Write(data)
+			return err
+		},
+	}
+}
+
+// writeSkill copies the embedded Skill tree into dest, replacing any existing
+// copy. It returns the number of files written.
+func writeSkill(dest string) (int, error) {
+	sub, err := fs.Sub(prometheuscli.SkillFS, prometheuscli.SkillRoot)
+	if err != nil {
+		return 0, cerrors.Wrap(err, cerrors.CategoryInternal, "SKILL_FS",
+			"failed to open the embedded Skill")
+	}
+	// Replace any previous copy so removed files do not linger.
+	if err := os.RemoveAll(dest); err != nil {
+		return 0, cerrors.Wrap(err, cerrors.CategoryConfig, "SKILL_CLEAN",
+			"failed to clear the existing Skill directory")
+	}
+
+	count := 0
+	walkErr := fs.WalkDir(sub, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dest, p)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		data, err := fs.ReadFile(sub, p)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(target, data, 0o644); err != nil {
+			return err
+		}
+		count++
+		return nil
+	})
+	if walkErr != nil {
+		return count, cerrors.Wrap(walkErr, cerrors.CategoryConfig, "SKILL_WRITE",
+			"failed to write the Skill files")
+	}
+	return count, nil
+}
+
+// embeddedSkillVersion reads the `version:` field from the embedded SKILL.md.
+func embeddedSkillVersion() string {
+	data, err := prometheuscli.SkillFS.ReadFile(prometheuscli.SkillRoot + "/SKILL.md")
+	if err != nil {
+		return "(unknown)"
+	}
+	return skillVersion(data)
+}
+
+func skillVersion(data []byte) string {
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "version:") {
+			version := strings.TrimSpace(strings.TrimPrefix(line, "version:"))
+			if version != "" {
+				return "v" + version
+			}
+		}
+	}
+	return "(unknown)"
+}
+
+func skillVersionsEqual(left, right string) bool {
+	normalize := func(value string) string {
+		return strings.TrimPrefix(strings.TrimSpace(value), "v")
+	}
+	return normalize(left) != "" && normalize(left) == normalize(right)
+}
+
+func currentSkillLoadState() skillLoadState {
+	version := strings.TrimSpace(os.Getenv(envSkillLoaded))
+	if version == "" {
+		return skillLoadState{Status: "not_loaded"}
+	}
+	status := "outdated"
+	if version == "1" {
+		status = "unknown"
+	} else if skillVersionsEqual(version, embeddedSkillVersion()) {
+		status = "current"
+	}
+	return skillLoadState{Loaded: true, Version: version, Status: status}
+}
+
+func inspectSkillInstall(agent, path string) skillResult {
+	result := skillResult{Agent: agent, Path: path, Status: "not_installed"}
+	data, err := os.ReadFile(filepath.Join(path, "SKILL.md"))
+	if err != nil {
+		return result
+	}
+	result.Status = "installed"
+	result.Version = skillVersion(data)
+	result.Alignment = "outdated"
+	if result.Version == "(unknown)" {
+		result.Alignment = "unknown"
+	} else if skillVersionsEqual(result.Version, embeddedSkillVersion()) {
+		result.Alignment = "current"
+	}
+	return result
+}
+
+func inspectSkillInstalls(project bool) ([]skillResult, error) {
+	installs := make([]skillResult, 0, len(agentSpecs))
+	for _, spec := range agentSpecs {
+		path, err := agentDest(spec, project)
+		if err != nil {
+			return nil, err
+		}
+		installs = append(installs, inspectSkillInstall(spec.id, path))
+	}
+	sort.Slice(installs, func(i, j int) bool { return installs[i].Agent < installs[j].Agent })
+	return installs, nil
+}

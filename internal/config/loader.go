@@ -1,0 +1,208 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
+	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
+)
+
+// FlagValues carries the global CLI flags that override configuration. Empty
+// fields are ignored (not treated as overrides).
+type FlagValues struct {
+	AuthScheme    string
+	CredentialURL string
+	BaseURL       string
+	TenantID      string
+	Format        string
+	Timeout       string
+}
+
+func (f FlagValues) layer() map[string]string {
+	m := map[string]string{}
+	put(m, fieldServer, f.BaseURL)
+	put(m, fieldAuthScheme, f.AuthScheme)
+	put(m, fieldCredentialURL, f.CredentialURL)
+	put(m, fieldTenantID, f.TenantID)
+	put(m, fieldFormat, f.Format)
+	put(m, fieldTimeout, f.Timeout)
+	return m
+}
+
+// LoadOptions controls where configuration is read from. All fields are
+// optional; sensible defaults are used when empty.
+type LoadOptions struct {
+	// Setup resolves Context even when new, ignores runtime context selection,
+	// and excludes personal environment fields before auth-scheme inference.
+	Setup bool
+	// ConfigDir overrides the directory containing config.yaml.
+	ConfigDir string
+	// DotenvPath overrides the .env file path. Empty means ".env".
+	DotenvPath string
+	// Flags carries global flag overrides (highest precedence).
+	Flags FlagValues
+	// Context selects a named context (from the --use-context flag). It wins
+	// over PROMETHEUS_CONTEXT and the file's current_context.
+	Context string
+}
+
+type namedLayer struct {
+	name string
+	data map[string]string
+}
+
+// selectContext picks the active context name for f, plus the source that
+// decided it (one of the ContextSource* constants). Precedence: the flag, the
+// PROMETHEUS_CONTEXT env var, the file's current_context, the sole context,
+// then a context literally named "default". It returns "" (source
+// ContextSourceNone, no error) when no context can or need be selected. An
+// override naming a context that does not exist is an error.
+func selectContext(f File, flagCtx, envCtx string) (string, string, error) {
+	pick := func(name, src, source string) (string, string, error) {
+		if c, ok := f.Context(name); ok {
+			return c.Name, source, nil
+		}
+		return "", "", cerrors.Newf(cerrors.CategoryConfig, "UNKNOWN_CONTEXT",
+			"context %q (from %s) is not defined in the config file", name, src).
+			WithHint(unknownContextHint(name, f.ContextNames())).
+			WithNextSteps("prometheus-cli config contexts")
+	}
+	switch {
+	case flagCtx != "":
+		return pick(flagCtx, "--use-context", ContextSourceFlag)
+	case envCtx != "":
+		return pick(envCtx, "PROMETHEUS_CONTEXT", ContextSourceEnv)
+	case f.CurrentContext != "":
+		return pick(f.CurrentContext, "current_context", ContextSourceCurrent)
+	case len(f.Contexts) == 1:
+		return f.Contexts[0].Name, ContextSourceSingle, nil
+	default:
+		if _, ok := f.Context(DefaultContextName); ok {
+			return DefaultContextName, ContextSourceDefault, nil
+		}
+		return "", ContextSourceNone, nil
+	}
+}
+
+// UnknownContextHint builds the hint shown when a context override names a
+// context that does not exist.
+func UnknownContextHint(name string, available []string) string {
+	return unknownContextHint(name, available)
+}
+
+func unknownContextHint(name string, available []string) string {
+	for _, a := range available {
+		if strings.EqualFold(a, name) && a != name {
+			return fmt.Sprintf("Did you mean %q? Context names are case-sensitive.", a)
+		}
+	}
+	if len(available) > 0 {
+		return fmt.Sprintf("Available contexts: %s.", strings.Join(available, ", "))
+	}
+	return "Run `prometheus-cli config contexts` to list defined contexts."
+}
+
+// buildFileLayer flattens the active context's fields plus the shared runtime
+// defaults into a layer map. An empty ctxName yields just the defaults.
+func buildFileLayer(f File, ctxName string) map[string]string {
+	m := map[string]string{}
+	if ctxName != "" {
+		if c, ok := f.Context(ctxName); ok {
+			put(m, fieldServer, c.BaseURL)
+			put(m, fieldAuthScheme, c.Auth.Scheme)
+			put(m, fieldAuthUsername, c.Auth.Username)
+			put(m, fieldCredentialURL, c.Auth.CredentialURL)
+			put(m, fieldTenantID, c.Auth.TenantID)
+		}
+	}
+	put(m, fieldFormat, f.Defaults.Format)
+	if f.Defaults.Timeout > 0 {
+		m[fieldTimeout] = f.Defaults.Timeout.String()
+	}
+	if f.Defaults.MaxRetries > 0 {
+		m[fieldMaxRetries] = strconv.Itoa(f.Defaults.MaxRetries)
+	}
+	if f.Defaults.ReadOnly {
+		m[fieldReadOnly] = "true"
+	}
+	return m
+}
+
+// Load resolves configuration from all sources and returns the merged result
+// with per-field provenance.
+func Load(opt LoadOptions) (*Resolved, error) {
+	dir := opt.ConfigDir
+	if dir == "" {
+		d, err := ResolveConfigDir()
+		if err != nil {
+			return nil, err
+		}
+		dir = d
+	}
+	file, _, err := ReadFile(dir)
+	if err != nil {
+		return nil, err
+	}
+	ctxName, ctxSource := opt.Context, ContextSourceFlag
+	if opt.Setup {
+		if c, ok := file.Context(ctxName); ok {
+			ctxName = c.Name
+		}
+	} else {
+		ctxName, ctxSource, err = selectContext(file, opt.Context, os.Getenv("PROMETHEUS_CONTEXT"))
+		if err != nil {
+			return nil, err
+		}
+	}
+	fileLayer := buildFileLayer(file, ctxName)
+
+	dotenvPath := opt.DotenvPath
+	if dotenvPath == "" {
+		dotenvPath = ".env"
+	}
+	dotLayer, err := dotenvLayer(dotenvPath, opt.Setup)
+	if err != nil {
+		return nil, err
+	}
+
+	// Lowest precedence first.
+	layers := []namedLayer{
+		{"default", defaultLayer()},
+		{"file", fileLayer},
+		{"dotenv", dotLayer},
+		{"env", envLayer(opt.Setup)},
+		{"flag", opt.Flags.layer()},
+	}
+
+	merged := map[string]string{}
+	sources := map[string]string{}
+	for _, l := range layers {
+		for k, v := range l.data {
+			merged[k] = v
+			sources[k] = l.name
+		}
+	}
+
+	resolveAuthDefaults(merged, sources)
+	return &Resolved{
+		Config: configFromMap(merged),
+		Secrets: Secrets{
+			Password: merged[fieldPassword],
+			Token:    merged[fieldToken],
+		},
+		Sources:       sources,
+		ActiveContext: ctxName,
+		ContextSource: ctxSource,
+		ContextNames:  file.ContextNames(),
+	}, nil
+}
+
+// ExplainField returns a human-readable provenance label for a field key.
+func ExplainField(sources map[string]string, field string) string {
+	if s, ok := sources[field]; ok {
+		return s
+	}
+	return "default"
+}

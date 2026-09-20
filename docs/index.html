@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>prometheus-cli — query Prometheus from your terminal</title>
+<meta name="description" content="A command-line tool that lets coding agents query Prometheus: PromQL instant and range queries, metric, label and series discovery, scrape targets, rules and alerts, with structured JSON output.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="canonical" href="https://angelmsger.github.io/prometheus-cli/">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top">prometheus-cli</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#quickstart">Quick start</a>
+      <a href="#commands">Commands</a>
+      <a class="is-cli" href="cli/">CLI reference</a>
+      <a href="https://github.com/AngelMsger/prometheus-cli">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <h1 class="reveal d1">prometheus-cli<span class="cursor"></span></h1>
+    <p class="tagline reveal d2">Query Prometheus from your terminal — built for coding agents, designed for humans.</p>
+    <div class="pills reveal d3">
+      <span class="pill">PromQL · Metrics · Alerts</span>
+      <span class="pill">Why is it empty?</span>
+      <span class="pill">Built for agents</span>
+    </div>
+    <div class="cta reveal d4">
+      <a class="btn btn-primary" href="#install">Get started</a>
+      <a class="btn btn-ghost" href="cli/">Browse the CLI reference →</a>
+      <a class="btn btn-ghost" href="https://github.com/AngelMsger/prometheus-cli">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<section class="section" id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Capabilities</span>
+      <h2>Ask the question, get an answer you can trust</h2>
+      <p class="lead">Run PromQL, find out what is actually being recorded, and read the operational state behind the numbers.</p>
+    </div>
+    <div class="grid grid-3">
+      <div class="card feat">
+        <div class="feat-ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></div>
+        <h3>PromQL, both shapes</h3>
+        <p><code>query instant</code> for the value now, <code>query range</code> for the series behind a graph — plus <code>exemplars</code>, <code>format</code> and <code>parse</code>.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg></div>
+        <h3>Discover before you query</h3>
+        <p><code>metadata list</code> gives a metric's type and help text, <code>labels values</code> its label values, and <code>series list</code> exactly what a selector matches.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div>
+        <h3>The step is never implicit</h3>
+        <p>Omit <code>--step</code> and the CLI derives a round resolution for the window — and clamps one that would blow past Prometheus' 11,000-point ceiling. The result says which.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg></div>
+        <h3>No positional tuples</h3>
+        <p>Prometheus' <code>[timestamp, "value"]</code> pairs come back as named fields with an RFC3339 instant beside the raw epoch — and <code>NaN</code> and <code>+Inf</code> survive intact.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 17l8 4 8-4"/></svg></div>
+        <h3>Why the metric is missing</h3>
+        <p><code>target list --unhealthy</code> for a failing scrape, <code>--state dropped</code> for one relabelling removed, and <code>rule list --failing</code> for a silently broken recording rule.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg></div>
+        <h3>Flat rules and alerts</h3>
+        <p>Rules are lifted out of their groups into one filterable row each, carrying <code>group</code>, <code>file</code> and their active alerts.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/><path d="M13 5l-2 14"/></svg></div>
+        <h3>Agent-first output</h3>
+        <p>JSON by default, with structured errors — categories, exit codes and recovery <code>next_steps</code> a coding agent can branch on.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+        <h3>Auth only when there is any</h3>
+        <p>A plain Prometheus needs no credential at all. Behind a gateway, a bearer token or basic auth lives in the OS keychain — plus <code>--tenant</code> for Cortex, Mimir and Thanos.</p>
+      </div>
+      <div class="card feat">
+        <div class="feat-ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/></svg></div>
+        <h3>Multiple servers</h3>
+        <p>kubectl-style named contexts in one config file. Switch the current server, or override per command with <code>--use-context</code>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="install">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Install</span>
+      <h2>Up and running in a minute</h2>
+      <p class="lead">Install with npm, then finish setup in two steps — deploy the Skill, then turn on shell completion.</p>
+    </div>
+    <div class="term">
+      <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">install</span></div>
+<pre><span class="c"># recommended — fetches the prebuilt binary for your platform</span>
+npm install -g @angelmsger/prometheus-cli</pre>
+    </div>
+    <p style="margin-top:14px;color:var(--muted)">Other methods — <code>go install</code>, a source build, or a prebuilt binary from the
+      <a href="https://github.com/AngelMsger/prometheus-cli/releases">Releases page</a> — are in the
+      <a href="https://github.com/AngelMsger/prometheus-cli#installation">README</a>.</p>
+    <p class="lead" style="margin-top:30px">Then finish setup:</p>
+    <div class="grid grid-2" style="margin-top:14px">
+      <div class="card">
+        <h3>1 · Companion Skill</h3>
+        <p style="margin:6px 0 12px">A <code>prometheus</code> Skill is embedded in the binary. It detects your coding agent — Claude Code, Codex — and installs for each:</p>
+        <div class="term"><div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+<pre><span class="p">$</span> prometheus-cli skill install
+<span class="c"># Re-run after CLI upgrades, then reload the agent context.</span></pre></div>
+      </div>
+      <div class="card">
+        <h3>2 · Shell completion</h3>
+        <p style="margin:6px 0 12px">Completes subcommands and flag values. Load it once:</p>
+        <div class="term"><div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+<pre><span class="p">$</span> source &lt;(prometheus-cli completion bash)</pre></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="quickstart">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Quick start</span>
+      <h2>Point it at a server, then ask</h2>
+      <p class="lead">A plain Prometheus needs only a URL. Find the metric, then ask the question.</p>
+    </div>
+    <div class="term">
+      <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">a typical session</span></div>
+<pre><span class="c"># setup (or just: export PROMETHEUS_URL=http://localhost:9090)</span>
+<span class="p">$</span> prometheus-cli config init --pretty
+<span class="p">$</span> prometheus-cli doctor
+
+<span class="c"># what is down right now</span>
+<span class="p">$</span> prometheus-cli query instant --query 'up == 0'
+
+<span class="c"># find the metric before querying it — the type decides the query</span>
+<span class="p">$</span> prometheus-cli metadata list --metric http_requests_total
+<span class="p">$</span> prometheus-cli labels values job --match 'http_requests_total' --since 1h
+
+<span class="c"># error rate over the last hour; the step is derived and reported</span>
+<span class="p">$</span> prometheus-cli query range --since 1h \
+    --query 'sum by (job) (rate(http_requests_total{status=~"5.."}[5m]))'
+
+<span class="c"># an empty result? look at the scrape, not the query</span>
+<span class="p">$</span> prometheus-cli target list --unhealthy
+<span class="p">$</span> prometheus-cli rule list --failing
+
+<span class="c"># what is firing, and is anyone being told</span>
+<span class="p">$</span> prometheus-cli alert list --state firing
+<span class="p">$</span> prometheus-cli alert managers</pre>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="commands">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Commands</span>
+      <h2>The command surface</h2>
+      <p class="lead">Organised <code>&lt;noun&gt; &lt;verb&gt;</code>, aligned with Prometheus' own API. Every flag and example lives in the README and the companion Skill.</p>
+    </div>
+    <div class="grid grid-3">
+      <a class="card cmd-group" href="cli/#prometheus-cli-query">
+        <span class="cg-name">query</span>
+        <p><code>instant</code>, <code>range</code>, <code>exemplars</code>, <code>format</code>, <code>parse</code> — the PromQL surface.</p>
+      </a>
+      <a class="card cmd-group" href="cli/#prometheus-cli-series">
+        <span class="cg-name">series</span>
+        <p>What a selector actually matches, before you aggregate over it.</p>
+      </a>
+      <a class="card cmd-group" href="cli/#prometheus-cli-labels">
+        <span class="cg-name">labels</span>
+        <p>Label names and their values — <code>__name__</code> is the metric list.</p>
+      </a>
+      <a class="card cmd-group" href="cli/#prometheus-cli-metadata">
+        <span class="cg-name">metadata</span>
+        <p>A metric's type, help text and unit, aggregated or per scrape target.</p>
+      </a>
+      <a class="card cmd-group" href="cli/#prometheus-cli-target">
+        <span class="cg-name">target</span>
+        <p>Scrape targets, active and dropped, with health and last error.</p>
+      </a>
+      <a class="card cmd-group" href="cli/#prometheus-cli-rule">
+        <span class="cg-name">rule</span>
+        <p>Recording and alerting rules, flattened — including the failing ones.</p>
+      </a>
+      <a class="card cmd-group" href="cli/#prometheus-cli-alert">
+        <span class="cg-name">alert</span>
+        <p>Active alerts and the Alertmanager endpoints they go to.</p>
+      </a>
+      <a class="card cmd-group" href="cli/#prometheus-cli-status">
+        <span class="cg-name">status</span>
+        <p>Config, flags, runtime info, build info and TSDB cardinality.</p>
+      </a>
+      <a class="card cmd-group" href="cli/#prometheus-cli-admin">
+        <span class="cg-name">admin</span>
+        <p>TSDB writes — delete series, clean tombstones, snapshot — gated and previewable.</p>
+      </a>
+      <a class="card cmd-group" href="cli/#prometheus-cli-config">
+        <span class="cg-name">config</span>
+        <p>Setup wizard, plus multi-server context management.</p>
+      </a>
+      <a class="card cmd-group" href="cli/#prometheus-cli-doctor">
+        <span class="cg-name">doctor</span>
+        <p>Diagnose configuration, credentials and connectivity.</p>
+      </a>
+      <a class="card cmd-group" href="cli/#prometheus-cli-skill">
+        <span class="cg-name">skill</span>
+        <p>Deploy the embedded companion Skill to your agents.</p>
+      </a>
+    </div>
+    <div class="cta" style="justify-content:flex-start;margin-top:26px">
+      <a class="btn btn-primary" href="cli/">Open the full CLI reference →</a>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="guides">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Guides</span>
+      <h2>Go deeper</h2>
+      <p class="lead">Longer-form documentation, rendered on GitHub.</p>
+    </div>
+    <div class="grid grid-3">
+      <a class="card" href="https://github.com/AngelMsger/prometheus-cli/blob/main/docs/installation.md">
+        <h3>Installation &amp; setup →</h3>
+        <p>Every install method, shell completion, deploying the Skill, and configuration.</p>
+      </a>
+      <a class="card" href="https://github.com/AngelMsger/prometheus-cli/blob/main/docs/technical-design.md">
+        <h3>Technical design →</h3>
+        <p>Architecture, the API client and error model, config resolution and rendering.</p>
+      </a>
+      <a class="card" href="https://github.com/AngelMsger/prometheus-cli/blob/main/docs/read-only-mode.md">
+        <h3>Read-only mode →</h3>
+        <p>The write-safety posture around the TSDB admin endpoints.</p>
+      </a>
+      <a class="card" href="https://github.com/AngelMsger/prometheus-cli/blob/main/docs/releasing.md">
+        <h3>Releasing →</h3>
+        <p>How releases are cut and published to GitHub and npm.</p>
+      </a>
+      <a class="card" href="https://github.com/AngelMsger/prometheus-cli/tree/main/skills/prometheus">
+        <h3>Companion Skill →</h3>
+        <p>The <code>prometheus</code> Skill that teaches a coding agent the CLI.</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="wrap">
+    <span class="brand-foot">prometheus-cli — MIT License</span>
+    <span>Sister CLIs: <a href="https://angelmsger.github.io/openobserve-cli/">openobserve-cli</a> · <a href="https://angelmsger.github.io/jenkins-cli/">jenkins-cli</a> · <a href="https://angelmsger.github.io/confluence-cli/">confluence-cli</a> · <a href="https://angelmsger.github.io/bitbucket-cli/">bitbucket-cli</a> · <a href="https://angelmsger.github.io/jira-cli/">jira-cli</a> · <a href="https://github.com/AngelMsger">more →</a></span>
+    <span>Developer: <a href="https://angelmsger.github.io/">AngelMsger</a> · <a href="https://github.com/AngelMsger/prometheus-cli">GitHub</a></span>
+  </div>
+</footer>
+
+<section id="team-setup"><h2>Team setup</h2><p>Preset service settings with <code>prometheus-cli config set-context</code>; members use <code>auth guide</code> and <code>auth login</code> for personal credentials when a gateway requires them. <a href="https://github.com/AngelMsger/prometheus-cli/blob/main/docs/installation.md#team-distribution-and-personal-login">Team distribution guide</a></p></section>
+</body>
+</html>

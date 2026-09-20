@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>prometheus-cli — CLI reference</title>
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<link rel="canonical" href="https://angelmsger.github.io/prometheus-cli/cli/">
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="../">prometheus-cli</a>
+    <div class="nav-links">
+      <a href="../">Home</a>
+      <a class="is-cli" href="../#commands">Commands</a>
+      <a href="https://github.com/AngelMsger/prometheus-cli">GitHub</a>
+    </div>
+  </div>
+</nav>
+<div class="layout">
+  <aside class="side">
+    <div class="side-group">
+      <div class="side-title">admin</div>
+      <a href="#prometheus-cli-admin">prometheus-cli admin</a>
+      <a href="#prometheus-cli-admin-clean-tombstones">prometheus-cli admin clean-tombstones</a>
+      <a href="#prometheus-cli-admin-delete-series">prometheus-cli admin delete-series</a>
+      <a href="#prometheus-cli-admin-snapshot">prometheus-cli admin snapshot</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">alert</div>
+      <a href="#prometheus-cli-alert">prometheus-cli alert</a>
+      <a href="#prometheus-cli-alert-list">prometheus-cli alert list</a>
+      <a href="#prometheus-cli-alert-managers">prometheus-cli alert managers</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">auth</div>
+      <a href="#prometheus-cli-auth">prometheus-cli auth</a>
+      <a href="#prometheus-cli-auth-guide">prometheus-cli auth guide</a>
+      <a href="#prometheus-cli-auth-login">prometheus-cli auth login</a>
+      <a href="#prometheus-cli-auth-logout">prometheus-cli auth logout</a>
+      <a href="#prometheus-cli-auth-status">prometheus-cli auth status</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">config</div>
+      <a href="#prometheus-cli-config">prometheus-cli config</a>
+      <a href="#prometheus-cli-config-contexts">prometheus-cli config contexts</a>
+      <a href="#prometheus-cli-config-init">prometheus-cli config init</a>
+      <a href="#prometheus-cli-config-set-context">prometheus-cli config set-context</a>
+      <a href="#prometheus-cli-config-show">prometheus-cli config show</a>
+      <a href="#prometheus-cli-config-use-context">prometheus-cli config use-context</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">doctor</div>
+      <a href="#prometheus-cli-doctor">prometheus-cli doctor</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">labels</div>
+      <a href="#prometheus-cli-labels">prometheus-cli labels</a>
+      <a href="#prometheus-cli-labels-list">prometheus-cli labels list</a>
+      <a href="#prometheus-cli-labels-values">prometheus-cli labels values</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">metadata</div>
+      <a href="#prometheus-cli-metadata">prometheus-cli metadata</a>
+      <a href="#prometheus-cli-metadata-list">prometheus-cli metadata list</a>
+      <a href="#prometheus-cli-metadata-targets">prometheus-cli metadata targets</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">query</div>
+      <a href="#prometheus-cli-query">prometheus-cli query</a>
+      <a href="#prometheus-cli-query-exemplars">prometheus-cli query exemplars</a>
+      <a href="#prometheus-cli-query-format">prometheus-cli query format</a>
+      <a href="#prometheus-cli-query-instant">prometheus-cli query instant</a>
+      <a href="#prometheus-cli-query-parse">prometheus-cli query parse</a>
+      <a href="#prometheus-cli-query-range">prometheus-cli query range</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">rule</div>
+      <a href="#prometheus-cli-rule">prometheus-cli rule</a>
+      <a href="#prometheus-cli-rule-list">prometheus-cli rule list</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">series</div>
+      <a href="#prometheus-cli-series">prometheus-cli series</a>
+      <a href="#prometheus-cli-series-list">prometheus-cli series list</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">skill</div>
+      <a href="#prometheus-cli-skill">prometheus-cli skill</a>
+      <a href="#prometheus-cli-skill-install">prometheus-cli skill install</a>
+      <a href="#prometheus-cli-skill-path">prometheus-cli skill path</a>
+      <a href="#prometheus-cli-skill-show">prometheus-cli skill show</a>
+      <a href="#prometheus-cli-skill-status">prometheus-cli skill status</a>
+      <a href="#prometheus-cli-skill-uninstall">prometheus-cli skill uninstall</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">status</div>
+      <a href="#prometheus-cli-status">prometheus-cli status</a>
+      <a href="#prometheus-cli-status-buildinfo">prometheus-cli status buildinfo</a>
+      <a href="#prometheus-cli-status-config">prometheus-cli status config</a>
+      <a href="#prometheus-cli-status-flags">prometheus-cli status flags</a>
+      <a href="#prometheus-cli-status-notifications">prometheus-cli status notifications</a>
+      <a href="#prometheus-cli-status-runtimeinfo">prometheus-cli status runtimeinfo</a>
+      <a href="#prometheus-cli-status-tsdb">prometheus-cli status tsdb</a>
+      <a href="#prometheus-cli-status-wal-replay">prometheus-cli status wal-replay</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">target</div>
+      <a href="#prometheus-cli-target">prometheus-cli target</a>
+      <a href="#prometheus-cli-target-list">prometheus-cli target list</a>
+      </div>
+    <div class="side-group">
+      <div class="side-title">version</div>
+      <a href="#prometheus-cli-version">prometheus-cli version</a>
+      </div>
+
+  </aside>
+  <main class="cli-main">
+    <span class="eyebrow">Reference</span>
+    <h1>CLI reference</h1>
+    <p class="lead">prometheus-cli drives the Prometheus HTTP API for a developer&#39;s
+investigation workflow: run PromQL instant and range queries, discover the
+metrics, labels and series behind them, and read scrape targets, rules and
+alerts. It emits agent-friendly JSON with structured errors, and works with
+any Prometheus-compatible server (Prometheus, Thanos, Cortex/Mimir,
+VictoriaMetrics).
+
+AGENT NOTE: a companion Skill (&#34;prometheus&#34;) carries the canonical usage,
+safety modes, and env setup and is the source of truth for driving this CLI.
+If you are an agent, load that Skill before composing commands. Check status
+with `prometheus-cli skill status`; install it with `prometheus-cli skill install`.
+After a CLI upgrade, refresh the Skill and reload the agent context.</p>
+    <p class="lead">Generated from the command tree, so it always matches <code>--help</code>.</p>
+
+    <section class="cmd">
+      <h2>Global flags</h2>
+      <p class="short">Persistent flags accepted by every command.</p>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--allow-writes</code></td><td><code>false</code></td><td>override read-only mode (defaults.read_only / PROMETHEUS_CLI_READ_ONLY) for this invocation</td></tr>
+        <tr><td><code>--auth-scheme</code></td><td></td><td>authentication scheme: none, basic or bearer (overrides environment and config)</td></tr>
+        <tr><td><code>--base-url</code></td><td></td><td>Prometheus server URL (overrides config), e.g. http://localhost:9090</td></tr>
+        <tr><td><code>--config</code></td><td></td><td>config directory (default ~/.angelmsger/prometheus)</td></tr>
+        <tr><td><code>--credential-url</code></td><td></td><td>credential acquisition page URL (display only)</td></tr>
+        <tr><td><code>--fields</code></td><td></td><td>comma-separated dot-path fields to keep</td></tr>
+        <tr><td><code>--format, -f</code></td><td></td><td>output format: json, table or ndjson</td></tr>
+        <tr><td><code>--pretty</code></td><td><code>false</code></td><td>human-friendly mode for interactive terminal use only (agents/scripts should omit): TUI in `config init`, colorized JSON elsewhere; errors without a TTY</td></tr>
+        <tr><td><code>--tenant</code></td><td></td><td>multi-tenant organization id, sent as X-Scope-OrgID (Cortex / Mimir / Thanos)</td></tr>
+        <tr><td><code>--timeout</code></td><td></td><td>request timeout, e.g. 30s</td></tr>
+        <tr><td><code>--use-context</code></td><td></td><td>use a named context for this invocation</td></tr>
+        <tr><td><code>--verbose, -v</code></td><td><code>false</code></td><td>log request lines on stderr</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+
+    <section class="cmd" id="prometheus-cli-admin">
+      <h2>prometheus-cli admin</h2>
+      <p class="short">TSDB administration: delete series, clean tombstones, snapshot (writes)</p>
+      <pre>prometheus-cli admin</pre>
+      <p class="long">The TSDB admin endpoints are the only commands in this CLI that change
+anything. They exist on the server only when it was started with
+--web.enable-admin-api; without it every one of them returns
+ADMIN_API_DISABLED (confirm with `status flags`).
+
+All three are writes: preview with --dry-run, and they are blocked in
+read-only mode unless --allow-writes is given. The two that destroy data
+(delete-series, clean-tombstones) additionally require --yes, and never
+prompt — so a non-interactive caller fails with a structured error
+instead of hanging.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-admin-clean-tombstones">
+      <h2>prometheus-cli admin clean-tombstones</h2>
+      <p class="short">Erase already-deleted blocks from disk (destructive write)</p>
+      <pre>prometheus-cli admin clean-tombstones [flags]</pre>
+      <p class="long">Removes the blocks that `delete-series` marked, immediately and
+irreversibly, instead of waiting for the next compaction. It takes no
+selector: it applies to everything currently marked deleted on this
+server.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--dry-run</code></td><td><code>false</code></td><td>print the request without sending it</td></tr>
+        <tr><td><code>--yes</code></td><td><code>false</code></td><td>confirm this destructive write</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli admin clean-tombstones --dry-run
+  prometheus-cli admin clean-tombstones --yes</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-admin-delete-series">
+      <h2>prometheus-cli admin delete-series</h2>
+      <p class="short">Mark the samples matching a selector as deleted (destructive write)</p>
+      <pre>prometheus-cli admin delete-series [flags]</pre>
+      <p class="long">Marks every sample matching the selectors as deleted, optionally within a
+window. The data stays on disk until the next compaction or a
+`clean-tombstones`, but it stops being queryable immediately.
+
+A selector is required: deleting without one would match everything.
+Confirm the exact set with `series list --match ...` first — the preview
+that --dry-run prints is the request, not the affected series.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--dry-run</code></td><td><code>false</code></td><td>print the request without sending it</td></tr>
+        <tr><td><code>--from</code></td><td></td><td>window start: RFC3339, an epoch, 2006-01-02, or now-1h</td></tr>
+        <tr><td><code>--match</code></td><td><code>[]</code></td><td>series selector identifying what to delete (repeatable, required)</td></tr>
+        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
+        <tr><td><code>--to</code></td><td></td><td>window end (default now)</td></tr>
+        <tr><td><code>--yes</code></td><td><code>false</code></td><td>confirm this destructive write</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre><span class="c">  # confirm what the selector matches, preview, then execute</span>
+  prometheus-cli series list --match &#39;up{job=&#34;retired&#34;}&#39; --since 30d
+  prometheus-cli admin delete-series --match &#39;up{job=&#34;retired&#34;}&#39; --dry-run
+  prometheus-cli admin delete-series --match &#39;up{job=&#34;retired&#34;}&#39; --yes</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-admin-snapshot">
+      <h2>prometheus-cli admin snapshot</h2>
+      <p class="short">Write a TSDB snapshot (write)</p>
+      <pre>prometheus-cli admin snapshot [flags]</pre>
+      <p class="long">Writes a snapshot of the current data under the server&#39;s data directory
+and returns its name. It adds data rather than destroying it, so unlike
+the other admin commands it needs no --yes — but it does consume disk on
+the server, and it is still blocked in read-only mode.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--dry-run</code></td><td><code>false</code></td><td>print the request without sending it</td></tr>
+        <tr><td><code>--skip-head</code></td><td><code>false</code></td><td>exclude the in-memory head block from the snapshot</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli admin snapshot --dry-run
+  prometheus-cli admin snapshot --skip-head</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-alert">
+      <h2>prometheus-cli alert</h2>
+      <p class="short">Inspect active alerts and the Alertmanagers they go to</p>
+      <pre>prometheus-cli alert</pre>
+      <p class="long">`alert list` is what is firing (or pending) right now, straight from
+Prometheus rather than from Alertmanager — so it shows alerts before any
+grouping, inhibition or silencing is applied. `alert managers` shows the
+Alertmanager endpoints notifications are being delivered to, which is
+where a firing alert that never arrived is usually explained.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-alert-list">
+      <h2>prometheus-cli alert list</h2>
+      <p class="short">List the currently active alerts</p>
+      <pre>prometheus-cli alert list [flags]</pre>
+      <p class="long">Returns each active alert with its state (pending or firing), its labels
+and annotations, when it became active and how long ago that was.
+--state and --name filter the result client-side; the endpoint itself
+takes no parameters.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--name</code></td><td></td><td>keep only alerts with this alertname (list them with `rule list --type alert`)</td></tr>
+        <tr><td><code>--state</code></td><td></td><td>keep only alerts in this state: pending or firing</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli alert list
+  prometheus-cli alert list --state firing
+  prometheus-cli alert list --name HighRequestLatency</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-alert-managers">
+      <h2>prometheus-cli alert managers</h2>
+      <p class="short">List the Alertmanager endpoints Prometheus is sending to</p>
+      <pre>prometheus-cli alert managers</pre>
+      <p class="long">Returns the discovered Alertmanagers, active and dropped, in one list with
+an explicit `state`. An empty active list means notifications are going
+nowhere, however loudly the rules are firing.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-auth">
+      <h2>prometheus-cli auth</h2>
+      <p class="short">Log in, check reachability and log out</p>
+      <pre>prometheus-cli auth</pre>
+      <p class="long">Prometheus has no accounts of its own, so a context often needs no
+credential at all (the `none` scheme). `auth login` stores the secret for
+the basic / bearer schemes used by a proxy or hosted endpoint; `auth
+status` reports what this context will send and whether the server answers.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-auth-guide">
+      <h2>prometheus-cli auth guide</h2>
+      <p class="short">Show offline credential acquisition guidance for this service</p>
+      <pre>prometheus-cli auth guide</pre>
+      <p class="long">Explains where this context&#39;s credential actually comes from. Prometheus
+has no credential page of its own, so the guidance is scheme-specific: the
+gateway operator for basic, the hosting product for bearer, and nothing at
+all for none. No request is ever sent to the credential URL.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-auth-login">
+      <h2>prometheus-cli auth login</h2>
+      <p class="short">Store credentials for the active context (interactive)</p>
+      <pre>prometheus-cli auth login</pre>
+      <p class="long">Prompts for the credential this context&#39;s auth scheme needs — a username
+and password (basic) or a bearer token (bearer) — verifies it against the
+server, and stores the secret in the OS keychain. The `none` scheme has
+nothing to store. Requires an interactive terminal; in CI / agent sandboxes
+set PROMETHEUS_TOKEN (or PROMETHEUS_USER &#43; PROMETHEUS_PASSWORD) instead.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-auth-logout">
+      <h2>prometheus-cli auth logout</h2>
+      <p class="short">Remove the stored credential for the active context</p>
+      <pre>prometheus-cli auth logout</pre>
+
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-auth-status">
+      <h2>prometheus-cli auth status</h2>
+      <p class="short">Show what this context sends and whether the server answers</p>
+      <pre>prometheus-cli auth status</pre>
+      <p class="long">Prometheus exposes no identity endpoint, so there is no &#34;who am I&#34; to
+report. This shows the resolved server, scheme, username and tenant, then
+calls the build-info endpoint to prove the server is reachable and accepts
+what the context sends.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-config">
+      <h2>prometheus-cli config</h2>
+      <p class="short">Set up and inspect configuration and contexts</p>
+      <pre>prometheus-cli config</pre>
+
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-config-contexts">
+      <h2>prometheus-cli config contexts</h2>
+      <p class="short">List configured contexts and which one is current</p>
+      <pre>prometheus-cli config contexts</pre>
+
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-config-init">
+      <h2>prometheus-cli config init</h2>
+      <p class="short">Interactively configure a context and store credentials</p>
+      <pre>prometheus-cli config init [flags]</pre>
+      <p class="long">Collects a server URL, an auth scheme and — for the schemes that need
+one — a credential, verifies them, then writes a named context plus any
+secret. A plain Prometheus needs only the URL: the default `none` scheme
+stores nothing. With --pretty it runs an interactive TUI (requires a
+terminal); without it, a plain line-by-line wizard that also works over a
+pipe. When a configuration already exists, it first asks whether to edit a
+context, add a new one, or replace it all (skip the question with
+--context &lt;name&gt;). For fully headless setup, set PROMETHEUS_URL and, if
+needed, PROMETHEUS_TOKEN (or PROMETHEUS_USER &#43; PROMETHEUS_PASSWORD).</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--context</code></td><td><code>default</code></td><td>name for the context to create or update (skips the edit/add/replace prompt)</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli config init --pretty   # interactive TUI (recommended)
+  prometheus-cli config init             # plain line-by-line wizard (scripts, non-TTY)
+  prometheus-cli config init --context prod   # add/update a named context directly</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-config-set-context">
+      <h2>prometheus-cli config set-context</h2>
+      <p class="short">Configure service presets without credentials or network access</p>
+      <pre>prometheus-cli config set-context &lt;name&gt; [flags]</pre>
+      <p class="long">Write service fields from flags, environment or .env over the named target
+context. Personal environment fields and secrets are ignored. Existing
+conflicting fields require --overwrite; unrelated contexts and user
+identities are preserved. The tenant id is a service preset, not an
+identity, so it is distributed with the URL and scheme.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--activate</code></td><td><code>false</code></td><td>make this the current context</td></tr>
+        <tr><td><code>--dry-run</code></td><td><code>false</code></td><td>preview configuration changes without writing files or credentials</td></tr>
+        <tr><td><code>--overwrite</code></td><td><code>false</code></td><td>update conflicting service fields; preserve personal identity and credentials</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli config set-context team --base-url https://prom.example.com --dry-run
+  prometheus-cli config set-context team --base-url https://prom.example.com --activate
+  prometheus-cli config set-context mimir --base-url https://mimir.example.com --auth-scheme bearer --tenant team-a</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-config-show">
+      <h2>prometheus-cli config show</h2>
+      <p class="short">Show the resolved configuration with field provenance</p>
+      <pre>prometheus-cli config show</pre>
+
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-config-use-context">
+      <h2>prometheus-cli config use-context</h2>
+      <p class="short">Set the current context</p>
+      <pre>prometheus-cli config use-context &lt;name&gt;</pre>
+
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-doctor">
+      <h2>prometheus-cli doctor</h2>
+      <p class="short">Check configuration, credentials and connectivity</p>
+      <pre>prometheus-cli doctor [flags]</pre>
+      <p class="long">Runs a quick health check: is a server configured, are credentials
+present, and can the server be reached and authenticated. Each check
+reports ok/failed so an agent can self-diagnose environment problems.
+It also reports whether a newer prometheus-cli release is available.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--no-update-check</code></td><td><code>false</code></td><td>skip the check for a newer prometheus-cli release</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli doctor
+  prometheus-cli doctor --no-update-check</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-labels">
+      <h2>prometheus-cli labels</h2>
+      <p class="short">Discover label names and their values</p>
+      <pre>prometheus-cli labels</pre>
+      <p class="long">Labels are how every series is addressed. `labels list` returns the label
+names present on a server (or within a selector); `labels values &lt;name&gt;`
+returns the values one label takes. Metric names live in the reserved
+`__name__` label, so `labels values __name__` is the full metric list.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-labels-list">
+      <h2>prometheus-cli labels list</h2>
+      <p class="short">List label names</p>
+      <pre>prometheus-cli labels list [flags]</pre>
+      <p class="long">Returns every label name the server knows, or — with --match — only the
+names present on the series a selector matches, which is the useful form
+when composing a `by (...)` or `without (...)` clause.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--from</code></td><td></td><td>window start: RFC3339, an epoch, 2006-01-02, or now-1h</td></tr>
+        <tr><td><code>--limit</code></td><td><code>1000</code></td><td>maximum number of names to return (0 = unlimited)</td></tr>
+        <tr><td><code>--match</code></td><td><code>[]</code></td><td>restrict to the series this selector matches (repeatable)</td></tr>
+        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
+        <tr><td><code>--to</code></td><td></td><td>window end (default now)</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli labels list --since 1h
+  prometheus-cli labels list --match &#39;http_requests_total&#39; --since 1h</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-labels-values">
+      <h2>prometheus-cli labels values</h2>
+      <p class="short">List the values a label takes</p>
+      <pre>prometheus-cli labels values &lt;label&gt; [flags]</pre>
+      <p class="long">Returns the distinct values of one label. `labels values __name__` is the
+list of metric names on the server — the starting point when you do not
+yet know what is being recorded. Narrow with --match to see only the
+values present on a particular set of series.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--from</code></td><td></td><td>window start: RFC3339, an epoch, 2006-01-02, or now-1h</td></tr>
+        <tr><td><code>--limit</code></td><td><code>1000</code></td><td>maximum number of values to return (0 = unlimited)</td></tr>
+        <tr><td><code>--match</code></td><td><code>[]</code></td><td>restrict to the series this selector matches (repeatable)</td></tr>
+        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
+        <tr><td><code>--to</code></td><td></td><td>window end (default now)</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre><span class="c">  # every metric name on the server</span>
+  prometheus-cli labels values __name__ --since 1h
+
+<span class="c">  # the jobs that report a particular metric</span>
+  prometheus-cli labels values job --match &#39;http_requests_total&#39; --since 1h</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-metadata">
+      <h2>prometheus-cli metadata</h2>
+      <p class="short">Look up what a metric is: its type, help text and unit</p>
+      <pre>prometheus-cli metadata</pre>
+      <p class="long">Metric metadata is the difference between guessing at a metric and knowing
+it. The type decides how it must be queried — a counter needs rate(), a
+gauge does not — and the help text says what it actually measures.
+`metadata list` reads the server&#39;s aggregated view; `metadata targets`
+reads it per scrape target, which is how you find a disagreement between
+two exporters of the same metric name.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-metadata-list">
+      <h2>prometheus-cli metadata list</h2>
+      <p class="short">List metric metadata (type, help, unit)</p>
+      <pre>prometheus-cli metadata list [flags]</pre>
+      <p class="long">Returns one row per metric name with its type, help text and unit, sorted
+by name. Narrow to a single metric with --metric before writing a query
+against it.
+
+--limit defaults to a bounded page; pass --limit 0 to lift it.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--limit</code></td><td><code>500</code></td><td>maximum number of metric names to return (0 = unlimited)</td></tr>
+        <tr><td><code>--limit-per-metric</code></td><td><code>0</code></td><td>maximum entries per metric name (0 = unlimited)</td></tr>
+        <tr><td><code>--metric</code></td><td></td><td>restrict to one metric name</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli metadata list --metric http_requests_total
+  prometheus-cli metadata list --limit 100</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-metadata-targets">
+      <h2>prometheus-cli metadata targets</h2>
+      <p class="short">Show metric metadata as individual scrape targets report it</p>
+      <pre>prometheus-cli metadata targets [flags]</pre>
+      <p class="long">Returns metadata per target rather than aggregated, each row carrying the
+target&#39;s labels. Use it when the same metric name is exported by more than
+one job and you need to know which definition a series came from.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--limit</code></td><td><code>500</code></td><td>maximum number of entries to return (0 = unlimited)</td></tr>
+        <tr><td><code>--match-target</code></td><td></td><td>target label selector, e.g. &#39;{job=&#34;node&#34;}&#39; (list targets with `target list`)</td></tr>
+        <tr><td><code>--metric</code></td><td></td><td>restrict to one metric name</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli metadata targets --metric http_requests_total
+  prometheus-cli metadata targets --match-target &#39;{job=&#34;node&#34;}&#39;</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-query">
+      <h2>prometheus-cli query</h2>
+      <p class="short">Run PromQL queries (instant, range and exemplars)</p>
+      <pre>prometheus-cli query</pre>
+      <p class="long">Query is the heart of the CLI. `query instant` evaluates an expression at
+a single point in time and returns one value per series; `query range`
+evaluates it repeatedly across a window and returns the series behind a
+graph. `query format` and `query parse` check an expression without
+evaluating it. Results are normalized: Prometheus&#39; positional
+[timestamp, &#34;value&#34;] tuples come back as named fields with an RFC3339
+instant alongside the raw epoch.
+
+Discover what to query with `metadata list` (metric names and their help
+text), `labels list` / `labels values` (label names and values) and
+`series list` (the exact series a selector matches).</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-query-exemplars">
+      <h2>prometheus-cli query exemplars</h2>
+      <p class="short">List the trace exemplars attached to a selector</p>
+      <pre>prometheus-cli query exemplars [flags]</pre>
+      <p class="long">Returns the exemplars recorded alongside samples over a window — the
+trace ids that link a metric spike to the requests that caused it. The
+window is required, and the server must have exemplar storage enabled.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--from</code></td><td></td><td>window start: RFC3339, an epoch, 2006-01-02, or now-1h</td></tr>
+        <tr><td><code>--query</code></td><td></td><td>series selector (or @file / @- to read it from a file or stdin)</td></tr>
+        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
+        <tr><td><code>--to</code></td><td></td><td>window end (default now)</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli query exemplars --query &#39;http_request_duration_seconds_bucket&#39; --since 1h</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-query-format">
+      <h2>prometheus-cli query format</h2>
+      <p class="short">Pretty-print a PromQL expression (and confirm it parses)</p>
+      <pre>prometheus-cli query format [flags]</pre>
+      <p class="long">Asks the server to re-render an expression in its canonical form. It is
+the cheapest way to confirm an expression is syntactically valid before
+running it against a large window.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--query</code></td><td></td><td>PromQL expression (or @file / @- to read it from a file or stdin)</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli query format --query &#39;sum  by(job)(rate(  up[5m] ))&#39;</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-query-instant">
+      <h2>prometheus-cli query instant</h2>
+      <p class="short">Evaluate a PromQL expression at a single instant</p>
+      <pre>prometheus-cli query instant [flags]</pre>
+      <p class="long">Runs an instant query. The result is one value per matching series at the
+evaluation time, which defaults to now. This is the shape to use for
+&#34;what is it right now&#34; and for any aggregate you intend to read as a
+single number.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--limit</code></td><td><code>0</code></td><td>maximum number of series to return (0 = unlimited)</td></tr>
+        <tr><td><code>--query</code></td><td></td><td>PromQL expression (or @file / @- to read it from a file or stdin)</td></tr>
+        <tr><td><code>--query-timeout</code></td><td></td><td>server-side evaluation timeout, e.g. 10s (distinct from --timeout, which bounds the HTTP request)</td></tr>
+        <tr><td><code>--stats</code></td><td><code>false</code></td><td>include the server&#39;s query execution statistics</td></tr>
+        <tr><td><code>--time</code></td><td></td><td>evaluation instant: RFC3339, an epoch, 2006-01-02, or now-1h (default now)</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre><span class="c">  # current request rate per service</span>
+  prometheus-cli query instant --query &#39;sum by (service) (rate(http_requests_total[5m]))&#39;
+
+<span class="c">  # which targets are down right now</span>
+  prometheus-cli query instant --query &#39;up == 0&#39;
+
+<span class="c">  # evaluate at a past instant</span>
+  prometheus-cli query instant --query &#39;up&#39; --time 2026-01-02T15:04:05Z</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-query-parse">
+      <h2>prometheus-cli query parse</h2>
+      <p class="short">Show the server&#39;s parse tree for a PromQL expression</p>
+      <pre>prometheus-cli query parse [flags]</pre>
+      <p class="long">Returns the abstract syntax tree Prometheus builds for an expression.
+Use it to see exactly how an expression was interpreted — which operator
+binds where, what a selector&#39;s matchers resolved to — when a query
+returns something other than what was intended.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--query</code></td><td></td><td>PromQL expression (or @file / @- to read it from a file or stdin)</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli query parse --query &#39;rate(http_requests_total[5m]) &gt; 0.5&#39;</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-query-range">
+      <h2>prometheus-cli query range</h2>
+      <p class="short">Evaluate a PromQL expression across a time window</p>
+      <pre>prometheus-cli query range [flags]</pre>
+      <p class="long">Runs a range query: the expression is evaluated at every step between the
+start and end of the window, yielding a timestamped series per result —
+the data behind a graph. The window is required (--since, or --from/--to).
+
+--step is optional. Prometheus rejects a range query resolving to more
+than 11,000 points per series, so with no --step the CLI derives a round
+resolution for the window, and an explicit --step that would overrun the
+limit is raised rather than sent. The step actually used, its source
+(flag / derived / clamped) and the resulting point count come back in the
+result, so the resolution behind the numbers is never implicit.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--from</code></td><td></td><td>window start: RFC3339, an epoch, 2006-01-02, or now-1h</td></tr>
+        <tr><td><code>--limit</code></td><td><code>0</code></td><td>maximum number of series to return (0 = unlimited)</td></tr>
+        <tr><td><code>--query</code></td><td></td><td>PromQL expression (or @file / @- to read it from a file or stdin)</td></tr>
+        <tr><td><code>--query-timeout</code></td><td></td><td>server-side evaluation timeout, e.g. 10s (distinct from --timeout, which bounds the HTTP request)</td></tr>
+        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
+        <tr><td><code>--stats</code></td><td><code>false</code></td><td>include the server&#39;s query execution statistics</td></tr>
+        <tr><td><code>--step</code></td><td></td><td>evaluation resolution, e.g. 30s, 1m, 5m (default: derived from the window)</td></tr>
+        <tr><td><code>--to</code></td><td></td><td>window end (default now)</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre><span class="c">  # error rate over the last hour, resolution chosen for you</span>
+  prometheus-cli query range --query &#39;sum(rate(http_requests_total{status=~&#34;5..&#34;}[5m]))&#39; --since 1h
+
+<span class="c">  # an explicit window and resolution</span>
+  prometheus-cli query range --query &#39;up&#39; --from 2026-01-02T00:00:00Z --to 2026-01-02T06:00:00Z --step 5m
+
+<span class="c">  # a long expression read from a file, streamed one series per line</span>
+  prometheus-cli query range --query @slo.promql --since 24h --format ndjson</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-rule">
+      <h2>prometheus-cli rule</h2>
+      <p class="short">Inspect recording and alerting rules</p>
+      <pre>prometheus-cli rule</pre>
+      <p class="long">Rules are the queries Prometheus evaluates on a schedule: recording rules
+that precompute a series, and alerting rules that fire alerts. The CLI
+flattens them out of their groups into one row per rule carrying `group`,
+`file` and the group&#39;s evaluation interval, so a failing rule can be found
+and reported without walking a nested document.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-rule-list">
+      <h2>prometheus-cli rule list</h2>
+      <p class="short">List rules, with their health and active alerts</p>
+      <pre>prometheus-cli rule list [flags]</pre>
+      <p class="long">Returns the configured rules. --type narrows to alerting or recording
+rules; --name, --group and --file filter by exact identifier (discover
+all three from an unfiltered listing); --failing keeps only the rules
+whose last evaluation errored, which is the fastest path to a broken
+recording rule.
+
+Alerting rules carry their currently active alerts. On an instance with
+many firing alerts that is the bulk of the response — pass
+--exclude-alerts to drop it. Use --group-limit to page by rule group and
+resume with the returned --cursor.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--cursor</code></td><td></td><td>resume a --group-limit listing from the previous page&#39;s next token</td></tr>
+        <tr><td><code>--exclude-alerts</code></td><td><code>false</code></td><td>omit each alerting rule&#39;s active alerts</td></tr>
+        <tr><td><code>--failing</code></td><td><code>false</code></td><td>keep only rules whose last evaluation errored</td></tr>
+        <tr><td><code>--file</code></td><td><code>[]</code></td><td>restrict to rules defined in this file (repeatable)</td></tr>
+        <tr><td><code>--group</code></td><td><code>[]</code></td><td>restrict to this rule group (repeatable)</td></tr>
+        <tr><td><code>--group-limit</code></td><td><code>0</code></td><td>return at most this many rule groups per page</td></tr>
+        <tr><td><code>--match</code></td><td><code>[]</code></td><td>label selector applied to alerting rules&#39; active alerts (repeatable)</td></tr>
+        <tr><td><code>--name</code></td><td><code>[]</code></td><td>restrict to rules with this exact name (repeatable)</td></tr>
+        <tr><td><code>--type</code></td><td></td><td>restrict to &#39;alert&#39; or &#39;record&#39; rules</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli rule list --type alert
+  prometheus-cli rule list --failing
+  prometheus-cli rule list --group node-alerts --exclude-alerts</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-series">
+      <h2>prometheus-cli series</h2>
+      <p class="short">Discover the series a selector matches</p>
+      <pre>prometheus-cli series</pre>
+      <p class="long">A series is one unique label set. `series list` answers &#34;what exactly
+does this selector match&#34; without evaluating any samples — the step to
+take before a query that returns nothing, or one that would return far
+more series than expected.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-series-list">
+      <h2>prometheus-cli series list</h2>
+      <p class="short">List the label sets matching one or more selectors</p>
+      <pre>prometheus-cli series list [flags]</pre>
+      <p class="long">Returns one entry per matching series: its __name__ lifted out as `name`,
+and the full label set as `metric`. Pass --match more than once to union
+several selectors. The window is optional but recommended: without it the
+server scans its whole retention.
+
+--limit defaults to a bounded page so a stray call on a large instance
+cannot flood an agent&#39;s context; pass --limit 0 to lift it.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--from</code></td><td></td><td>window start: RFC3339, an epoch, 2006-01-02, or now-1h</td></tr>
+        <tr><td><code>--limit</code></td><td><code>1000</code></td><td>maximum number of series to return (0 = unlimited)</td></tr>
+        <tr><td><code>--match</code></td><td><code>[]</code></td><td>series selector, e.g. &#39;up{job=&#34;node&#34;}&#39; (repeatable)</td></tr>
+        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
+        <tr><td><code>--to</code></td><td></td><td>window end (default now)</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli series list --match &#39;up{job=&#34;node&#34;}&#39; --since 1h
+  prometheus-cli series list --match &#39;http_requests_total&#39; --match &#39;up&#39; --since 6h --limit 50</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-skill">
+      <h2>prometheus-cli skill</h2>
+      <p class="short">Install the companion Skill for coding agents</p>
+      <pre>prometheus-cli skill</pre>
+
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-skill-install">
+      <h2>prometheus-cli skill install</h2>
+      <p class="short">Deploy the embedded Skill into a coding agent&#39;s skills directory</p>
+      <pre>prometheus-cli skill install [flags]</pre>
+      <p class="long">Write the companion `prometheus` Skill — bundled inside this binary —
+into a coding agent&#39;s skills directory. With no flags it probes for
+installed agents (claude-code, codex, cursor, agents, gemini, github-copilot, opencode, continue, windsurf, grok, pi, kilo, roo) and installs
+into each one found. Re-run it after upgrading the CLI to refresh the
+Skill to the matching version, then reload the agent context.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--agent</code></td><td><code>[]</code></td><td>target agents instead of auto-detecting (claude-code, codex, cursor, agents, gemini, github-copilot, opencode, continue, windsurf, grok, pi, kilo, roo)</td></tr>
+        <tr><td><code>--dir</code></td><td></td><td>explicit skills base directory; installs into &lt;dir&gt;/prometheus</td></tr>
+        <tr><td><code>--project</code></td><td><code>false</code></td><td>install into each agent&#39;s project skills directory instead of $HOME</td></tr>
+        </tbody>
+      </table>
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-skill-path">
+      <h2>prometheus-cli skill path</h2>
+      <p class="short">Print Skill paths, installation state and version alignment</p>
+      <pre>prometheus-cli skill path [flags]</pre>
+
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--agent</code></td><td><code>[]</code></td><td>limit to specific agents (claude-code, codex, cursor, agents, gemini, github-copilot, opencode, continue, windsurf, grok, pi, kilo, roo)</td></tr>
+        <tr><td><code>--dir</code></td><td></td><td>explicit skills base directory</td></tr>
+        <tr><td><code>--project</code></td><td><code>false</code></td><td>use the project skills directories instead of $HOME</td></tr>
+        </tbody>
+      </table>
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-skill-show">
+      <h2>prometheus-cli skill show</h2>
+      <p class="short">Print the embedded SKILL.md to stdout</p>
+      <pre>prometheus-cli skill show</pre>
+
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-skill-status">
+      <h2>prometheus-cli skill status</h2>
+      <p class="short">Report loaded, installed and embedded Skill versions</p>
+      <pre>prometheus-cli skill status [flags]</pre>
+
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--project</code></td><td><code>false</code></td><td>check each agent&#39;s project skills directory instead of $HOME</td></tr>
+        </tbody>
+      </table>
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-skill-uninstall">
+      <h2>prometheus-cli skill uninstall</h2>
+      <p class="short">Remove the companion Skill from a coding agent&#39;s skills directory</p>
+      <pre>prometheus-cli skill uninstall [flags]</pre>
+      <p class="long">Delete a previously installed `prometheus` Skill. With no flags it
+probes for installed agents (claude-code, codex, cursor, agents, gemini, github-copilot, opencode, continue, windsurf, grok, pi, kilo, roo)
+and removes the Skill from each one found.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--agent</code></td><td><code>[]</code></td><td>target agents instead of auto-detecting (claude-code, codex, cursor, agents, gemini, github-copilot, opencode, continue, windsurf, grok, pi, kilo, roo)</td></tr>
+        <tr><td><code>--dir</code></td><td></td><td>explicit skills base directory; removes &lt;dir&gt;/prometheus</td></tr>
+        <tr><td><code>--project</code></td><td><code>false</code></td><td>remove from each agent&#39;s project skills directory instead of $HOME</td></tr>
+        </tbody>
+      </table>
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-status">
+      <h2>prometheus-cli status</h2>
+      <p class="short">Read the server&#39;s configuration, flags and storage stats</p>
+      <pre>prometheus-cli status</pre>
+      <p class="long">Status answers questions about the server rather than the data: what it
+was configured with, which flags it was started with (including whether
+the admin API is enabled), what its storage looks like, and whether it is
+still replaying its write-ahead log. Each topic is a separate subcommand
+so every accepted value is discoverable from --help.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-status-buildinfo">
+      <h2>prometheus-cli status buildinfo</h2>
+      <p class="short">Show the server&#39;s version and build metadata</p>
+      <pre>prometheus-cli status buildinfo</pre>
+      <p class="long">Returns the version, revision and Go build details. The version decides
+which API endpoints and PromQL features exist, so it is worth reading
+before concluding that a missing endpoint is a configuration problem.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-status-config">
+      <h2>prometheus-cli status config</h2>
+      <p class="short">Show the server&#39;s running configuration (YAML)</p>
+      <pre>prometheus-cli status config</pre>
+      <p class="long">Returns the configuration Prometheus is currently running, as a YAML
+document under `yaml`. This is the reloaded state, not what is on disk —
+the two differ whenever a change has not been reloaded.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-status-flags">
+      <h2>prometheus-cli status flags</h2>
+      <p class="short">Show the command-line flags the server was started with</p>
+      <pre>prometheus-cli status flags</pre>
+      <p class="long">Returns the server&#39;s flag values. This is where to confirm the retention
+period, the storage path, and whether --web.enable-admin-api is on (the
+admin commands need it).</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-status-notifications">
+      <h2>prometheus-cli status notifications</h2>
+      <p class="short">Show the server&#39;s active notifications</p>
+      <pre>prometheus-cli status notifications</pre>
+      <p class="long">Returns the notifications Prometheus is surfacing about itself — the same
+banners its web UI shows. Available on newer servers only.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-status-runtimeinfo">
+      <h2>prometheus-cli status runtimeinfo</h2>
+      <p class="short">Show runtime state: uptime, reload time, goroutines, storage retention</p>
+      <pre>prometheus-cli status runtimeinfo</pre>
+      <p class="long">Returns live runtime state including start time, last successful
+configuration reload, and current time-series counts. A last-reload time
+older than a config change means the change has not taken effect.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-status-tsdb">
+      <h2>prometheus-cli status tsdb</h2>
+      <p class="short">Show storage cardinality: the biggest metrics, labels and label values</p>
+      <pre>prometheus-cli status tsdb [flags]</pre>
+      <p class="long">Returns the head block&#39;s cardinality tables — the series count by metric
+name, by label pair, and the labels consuming the most memory. This is the
+direct answer to &#34;what is making this server slow or large&#34;.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--limit</code></td><td><code>0</code></td><td>number of entries per cardinality table (0 = the server&#39;s default)</td></tr>
+        </tbody>
+      </table>
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-status-wal-replay">
+      <h2>prometheus-cli status wal-replay</h2>
+      <p class="short">Show write-ahead-log replay progress</p>
+      <pre>prometheus-cli status wal-replay</pre>
+      <p class="long">Returns WAL replay progress. A server still replaying answers queries with
+incomplete data, so a surprising empty result right after a restart is
+explained here rather than in the query.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-target">
+      <h2>prometheus-cli target</h2>
+      <p class="short">Inspect scrape targets and why they are failing</p>
+      <pre>prometheus-cli target</pre>
+      <p class="long">Targets are what Prometheus scrapes. When a metric is missing the cause is
+usually here, not in the query: a target that is down, one that was never
+discovered, or one dropped by relabelling. Active and dropped targets come
+back in one list with an explicit `state`, each carrying its health, last
+scrape time (absolute and relative) and last error.</p>
+
+
+    </section>
+
+    <section class="cmd" id="prometheus-cli-target-list">
+      <h2>prometheus-cli target list</h2>
+      <p class="short">List scrape targets, active and dropped</p>
+      <pre>prometheus-cli target list [flags]</pre>
+      <p class="long">Returns the scrape targets. --state active|dropped|any narrows which the
+server sends; --scrape-pool narrows to one pool; --unhealthy keeps only
+the active targets Prometheus does not consider up, which is the direct
+answer to &#34;what is broken right now&#34;.
+
+A dropped target has no post-relabelling labels, so its identity is
+reported from `discovered_labels` — the only place the reason it was
+dropped is visible.</p>
+      <h3>Options</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+        <tr><td><code>--scrape-pool</code></td><td></td><td>restrict to one scrape pool</td></tr>
+        <tr><td><code>--state</code></td><td></td><td>which targets to return: active, dropped or any</td></tr>
+        <tr><td><code>--unhealthy</code></td><td><code>false</code></td><td>keep only active targets that are not up</td></tr>
+        </tbody>
+      </table>
+      <h3>Examples</h3><pre>  prometheus-cli target list --unhealthy
+  prometheus-cli target list --state dropped
+  prometheus-cli target list --scrape-pool node</pre>
+    </section>
+
+    <section class="cmd" id="prometheus-cli-version">
+      <h2>prometheus-cli version</h2>
+      <p class="short">Print version information</p>
+      <pre>prometheus-cli version</pre>
+
+
+
+    </section>
+
+  </main>
+</div>
+<footer class="footer">
+  <div class="wrap">
+    <span class="brand-foot">prometheus-cli — MIT License</span>
+    <span>Developer: <a href="https://angelmsger.github.io/">AngelMsger</a> · <a href="https://github.com/AngelMsger/prometheus-cli">GitHub</a></span>
+  </div>
+</footer>
+</body>
+</html>
