@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-09-20
+## [0.1.0] - 2026-09-22
 
 First release: an agent-facing CLI for the Prometheus HTTP API, aligned with the
 sibling `openobserve-cli` / `jenkins-cli` / `confluence-cli` / `bitbucket-cli` /
