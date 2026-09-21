@@ -18,6 +18,8 @@ companion Skill that teaches an agent how to use it.
 
 📖 **Documentation site:** <https://angelmsger.github.io/prometheus-cli/>
 
+![prometheus-cli — query Prometheus from your terminal](docs/image.png)
+
 ```console
 $ prometheus-cli query instant --query 'up == 0'
 {
