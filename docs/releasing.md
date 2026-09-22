@@ -76,7 +76,10 @@ Pushing a `v*` tag triggers `.github/workflows/release.yml`, which:
    re-uploads the assets if the release already exists;
 5. sets the npm package version to the tag (minus the `v`) and runs
    `npm publish --access public` for `@angelmsger/prometheus-cli`, skipping the
-   publish when that version is already on the registry.
+   publish when that version is already on the registry. The registry can serve
+   a stale 404 for a package published moments earlier (for example the
+   bootstrap publish below), so a publish rejected as a duplicate version is
+   also treated as already published; any other publish error fails the step.
 
 Use an annotated tag and semantic versioning (`vMAJOR.MINOR.PATCH`).
 

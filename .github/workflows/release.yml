@@ -73,12 +73,21 @@ jobs:
       - name: publish to npm
         working-directory: build/npm
         run: |
+          set -o pipefail
           echo "node $(node --version) / npm $(npm --version)"
           echo "OIDC token endpoint present: ${ACTIONS_ID_TOKEN_REQUEST_URL:+yes}"
           VERSION="${TAG#v}"
           npm version "$VERSION" --no-git-tag-version --allow-same-version
           if npm view "@angelmsger/prometheus-cli@$VERSION" version >/dev/null 2>&1; then
             echo "@angelmsger/prometheus-cli@$VERSION already published — skipping"
-          else
-            npm publish --access public
+          elif ! npm publish --access public 2>&1 | tee publish.log; then
+            # The registry can serve a stale 404 for a just-published package,
+            # so the check above misses it and the publish is rejected as a
+            # duplicate. That rejection proves the version is live; anything
+            # else is a real failure.
+            if grep -q "cannot publish over the previously published versions" publish.log; then
+              echo "@angelmsger/prometheus-cli@$VERSION is already on the registry — treating as published"
+            else
+              exit 1
+            fi
           fi
