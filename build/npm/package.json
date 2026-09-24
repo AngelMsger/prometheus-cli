@@ -1,6 +1,6 @@
 {
   "name": "@angelmsger/prometheus-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Query Prometheus from the command line for coding agents: PromQL instant and range queries, metric/label/series discovery, scrape targets, rules and alerts, with structured JSON output.",
   "keywords": [
     "prometheus",

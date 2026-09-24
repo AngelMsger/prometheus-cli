@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-24
+### Added
+
+- Add `auth reuse` to verify and associate an existing matching login with a team
+  context without another login or copying secrets; include dry-run and explicit
+  source selection for ambiguous identities.
+
+
 ## [0.1.0] - 2026-09-22
 
 First release: an agent-facing CLI for the Prometheus HTTP API, aligned with the
@@ -58,5 +66,6 @@ sibling `openobserve-cli` / `jenkins-cli` / `confluence-cli` / `bitbucket-cli` /
 - Base URLs ending in `/api/v1` are trimmed back to the server root at both the
   client and the persistence boundary.
 
-[Unreleased]: https://github.com/AngelMsger/prometheus-cli/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/AngelMsger/prometheus-cli/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/AngelMsger/prometheus-cli/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/AngelMsger/prometheus-cli/releases/tag/v0.1.0

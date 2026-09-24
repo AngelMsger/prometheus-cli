@@ -240,3 +240,7 @@ Sister CLIs: [openobserve-cli](https://angelmsger.github.io/openobserve-cli/) ·
 [confluence-cli](https://angelmsger.github.io/confluence-cli/) ·
 [bitbucket-cli](https://angelmsger.github.io/bitbucket-cli/) ·
 [jira-cli](https://angelmsger.github.io/jira-cli/)
+
+To associate an existing login with a prepared team context, run
+`prometheus-cli --use-context team auth reuse --dry-run`, then omit `--dry-run`.
+See [existing-login reuse](docs/installation.md#reuse-an-existing-login).

@@ -209,3 +209,16 @@ the emitted document, so for a query result use it together with
   the bearer + path-routed base URL path, and the Skill handshake.
 - `./scripts/e2e-setup.sh` — team distribution with no network and no access to
   personal state.
+
+### Existing credential reuse
+
+`internal/app/auth_reuse.go` matches stored contexts and verifies credentials
+through native auth/client code before associating identity with the destination.
+It never writes the credential store, consumes environment secrets or changes
+current_context. Public `config set-context` remains offline and credential-free.
+The destination's complete service identity and the captured config are checked
+again before writing. See the installation guide for the result and recovery contract.
+
+Equivalent service URL overrides preserve the persisted native credential lookup
+key without redirecting requests or copying secrets. Logout removes that same
+entry. A different complete deployment URL cannot use the retained lookup key.

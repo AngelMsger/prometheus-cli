@@ -29,6 +29,7 @@ is published at <https://angelmsger.github.io/prometheus-cli/cli/>.
 | [`prometheus-cli auth guide`](https://angelmsger.github.io/prometheus-cli/cli/#prometheus-cli-auth-guide) | Show offline credential acquisition guidance for this service |
 | [`prometheus-cli auth login`](https://angelmsger.github.io/prometheus-cli/cli/#prometheus-cli-auth-login) | Store credentials for the active context (interactive) |
 | [`prometheus-cli auth logout`](https://angelmsger.github.io/prometheus-cli/cli/#prometheus-cli-auth-logout) | Remove the stored credential for the active context |
+| [`prometheus-cli auth reuse`](https://angelmsger.github.io/prometheus-cli/cli/#prometheus-cli-auth-reuse) | Reuse an existing login in the selected context without signing in again |
 | [`prometheus-cli auth status`](https://angelmsger.github.io/prometheus-cli/cli/#prometheus-cli-auth-status) | Show what this context sends and whether the server answers |
 
 ## config

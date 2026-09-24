@@ -1,6 +1,6 @@
 ---
 name: prometheus
-version: 0.1.0
+version: 0.1.2
 description: "Query Prometheus and Prometheus-compatible backends (Thanos, Cortex/Mimir, VictoriaMetrics) from the command line: PromQL instant and range queries, metric/label/series discovery, metric metadata, scrape targets, recording and alerting rules, active alerts, Alertmanagers, and server config/flags/TSDB status. Use for PromQL questions, metric or alert investigations, Prometheus URLs, 'is it up', error rates, latency percentiles, saturation, which targets are down, why a metric is missing, or which rules are failing. JSON output and structured errors support agent workflows. Reuse existing host configuration; setup is prometheus-cli config init or PROMETHEUS_URL (plus PROMETHEUS_TOKEN only where a gateway requires it). Inspection is read-only; the TSDB admin writes need --allow-writes and --yes."
 metadata:
   requires:
@@ -153,7 +153,7 @@ it from stdin, which avoids shell-quoting a long PromQL expression.
 
 ## Agent-facing conventions
 
-- **Skill handshake — set `PROMETHEUS_CLI_SKILL=0.1.0`.** Once you have loaded
+- **Skill handshake — set `PROMETHEUS_CLI_SKILL=0.1.2`.** Once you have loaded
   this Skill, export that exact value in the environment used to run the CLI.
   The CLI compares it with the embedded Skill version and emits a structured
   stderr notice when the Skill is missing, old, or uses the legacy unversioned
@@ -202,3 +202,10 @@ it from stdin, which avoids shell-quoting a long PromQL expression.
 
 See [team setup](references/team-setup.md) for the output fields, conflict
 semantics, credential URL overrides, and failure recovery.
+
+
+## Reuse existing authentication
+
+Before repeating login, preview `prometheus-cli --use-context <target> auth reuse
+--dry-run`, then apply. Keep the separate `auth status` check. See
+[reuse and ambiguity recovery](references/getting-started.md#reuse-existing-authentication).

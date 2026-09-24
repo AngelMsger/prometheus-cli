@@ -6,6 +6,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SKILL_VERSION="$(sed -n 's/^version: *//p' "$ROOT/skills/prometheus/SKILL.md" | head -1)"
 BIN="$ROOT/bin/prometheus-cli"
 ADDR="127.0.0.1:45090"
 URL="http://$ADDR"
@@ -37,7 +38,7 @@ done
 export PROMETHEUS_URL="$URL"
 export PROMETHEUS_RELEASE_API="$URL/releases/latest"
 export PROMETHEUS_CLI_NO_UPDATE_NOTIFIER=1
-export PROMETHEUS_CLI_SKILL=0.1.0
+export PROMETHEUS_CLI_SKILL="$SKILL_VERSION"
 
 run() { "$BIN" --config "$TMP" "$@"; }
 
@@ -208,7 +209,7 @@ mkdir -p "$SKILL_HOME"
 check "skill install for Codex" '"alignment": "current"' -- \
   env HOME="$SKILL_HOME" "$BIN" --config "$TMP" skill install --agent codex
 check "skill status version aligned" '"loaded_status": "current"' -- \
-  env HOME="$SKILL_HOME" PROMETHEUS_CLI_SKILL=0.1.0 "$BIN" --config "$TMP" skill status
+  env HOME="$SKILL_HOME" PROMETHEUS_CLI_SKILL="$SKILL_VERSION" "$BIN" --config "$TMP" skill status
 legacy_out="$(env HOME="$SKILL_HOME" PROMETHEUS_CLI_SKILL=1 PROMETHEUS_CLI_NO_UPDATE_NOTIFIER=1 \
   "$BIN" --config "$TMP" labels list 2>&1 || true)"
 if grep -q '"status":"unknown"' <<<"$legacy_out"; then
@@ -217,7 +218,7 @@ if grep -q '"status":"unknown"' <<<"$legacy_out"; then
 else
   echo "FAIL - legacy Skill handshake is detected"; exit 1
 fi
-update_out="$(env -u PROMETHEUS_CLI_NO_UPDATE_NOTIFIER PROMETHEUS_CLI_SKILL=0.1.0 \
+update_out="$(env -u PROMETHEUS_CLI_NO_UPDATE_NOTIFIER PROMETHEUS_CLI_SKILL="$SKILL_VERSION" \
   "$BIN" --config "$TMP" labels list 2>&1 || true)"
 if grep -q '"next_steps"' <<<"$update_out" && grep -q 'prometheus-cli skill install' <<<"$update_out"; then
   echo "ok   - update notice includes Skill refresh"
