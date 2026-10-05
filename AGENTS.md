@@ -134,6 +134,18 @@ never request a guide URL with credentials. Cover a fresh config reload,
 conflict/idempotent setup, and partial persistence failures when changing this
 flow. The canonical behavior is in the installation guide's team setup section.
 
+## Credential retention
+
+A stored secret is keyed by the server's host, path and scheme
+(`auth.AccountKey`), so every context on one deployment shares it — a team
+preset beside a personal context, or two spellings of the same URL. Nothing but
+an explicit `auth logout` deletes one: `config init` saves and never cleans up,
+and there is no `config delete-context`. Keep it that way unless a cleanup is
+really needed; if one is added, compare account keys rather than URL strings and
+keep any secret a remaining context still resolves, as the sibling
+`wecom-calendar-cli` does in `forgetUnusedCredential`. `config_credentials_test.go`
+drives the real wizard to pin both guarantees.
+
 ## Credential reuse
 
 Keep `auth reuse` separate from public service setup. Match complete URLs and
