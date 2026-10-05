@@ -115,5 +115,7 @@ resolved to.
 
 A result may carry `warnings` (for example a partial response from a federated
 or sharded backend). They are part of the answer: a truncated result read as
-complete is a wrong answer. In `--format ndjson` they are re-emitted on stderr
-as a `query_advisories` notice.
+complete is a wrong answer. In `--format ndjson`, and whenever `--fields`
+projects the document, they are re-emitted on stderr as a `query_advisories`
+notice whose `next_steps` name the recovery: narrow the selector, aggregate, or
+raise `--limit`.

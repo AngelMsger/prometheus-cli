@@ -21,6 +21,10 @@ All notable changes to this project are documented here. The format follows
   failed row write.
 - Merge float and native-histogram samples chronologically, and preserve the
   `value` field for empty string samples without adding it to histogram samples.
+- Keep a query's server warnings and infos visible under `--fields`: a
+  projected JSON or table result now re-emits them as the `query_advisories`
+  stderr notice, as `--format ndjson` already did. The notice gains `next_steps`
+  naming the narrower-query and `--limit` recovery path.
 - Update the companion Skill to 0.1.3 with discovery completeness, pagination and
   bounds guidance; add process-level regression coverage for response integrity.
 

@@ -81,6 +81,28 @@ func TestCLIResponseIntegrity(t *testing.T) {
 		}
 	})
 
+	// A query result carries its advisories inside the document. Projecting
+	// the document away from them must not hide a truncation warning.
+	t.Run("query advisories survive field projection", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up"},"value":[1000,"1"]}]},"warnings":["results truncated due to limit"]}`))
+		}))
+		defer server.Close()
+		for _, format := range []string{"json", "table"} {
+			stdout, stderr := run(t, server.URL, 0, "query", "instant", "--query", "up", "--limit", "1", "--fields", "series_count", "--format", format)
+			if strings.Contains(stdout, "truncated") || !strings.Contains(stderr, `"query_advisories"`) || !strings.Contains(stderr, "results truncated due to limit") {
+				t.Fatalf("%s: projection hid the advisory: stdout=%s stderr=%s", format, stdout, stderr)
+			}
+			if !json.Valid([]byte(stderr)) || !strings.Contains(stderr, `"next_steps"`) || !strings.Contains(stderr, "--limit") {
+				t.Fatalf("%s: advisory lacks a recovery path: %s", format, stderr)
+			}
+		}
+		stdout, stderr := run(t, server.URL, 0, "query", "instant", "--query", "up", "--limit", "1")
+		if !strings.Contains(stdout, "results truncated due to limit") || stderr != "" {
+			t.Fatalf("an unprojected document must carry the advisory once: stdout=%s stderr=%s", stdout, stderr)
+		}
+	})
+
 	t.Run("empty reads cannot report success", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
 		defer server.Close()

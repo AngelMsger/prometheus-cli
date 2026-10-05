@@ -323,12 +323,18 @@ func newQueryParseCmd(s *appState) *cobra.Command {
 
 // emitQuery renders a query result. JSON returns the whole normalized document;
 // ndjson streams one series per line, for a result too large to hold in one
-// blob. The server's own warnings are re-emitted on stderr in ndjson mode so
-// they are not lost when only the series are piped onward.
+// blob. The server's own warnings are re-emitted on stderr whenever stdout
+// would not carry them: in ndjson mode, where only the series are written, and
+// under --fields, where the projection can drop the document's `warnings` and
+// `infos` keys. An unprojected document keeps them in place, so they are not
+// duplicated.
 func (s *appState) emitQuery(result *apiclient.QueryResult) error {
 	if s.ndjson() {
 		emitQueryAdvisories(result)
 		return s.emitList(result.Series, pageInfo{})
+	}
+	if len(s.fieldList()) > 0 {
+		emitQueryAdvisories(result)
 	}
 	return s.emit(result)
 }
@@ -393,9 +399,10 @@ func shellQuote(s string) string {
 }
 
 // emitQueryAdvisories re-emits a result's server warnings and infos on stderr.
-// In ndjson mode only the series reach stdout, and a warning such as "results
-// are truncated" changes how the numbers should be read — losing it silently
-// would be a wrong answer, so it is surfaced as a structured notice.
+// In ndjson mode only the series reach stdout, and a projected document may
+// omit them; a warning such as "results are truncated" changes how the numbers
+// should be read — losing it silently would be a wrong answer, so it is
+// surfaced as a structured notice.
 func emitQueryAdvisories(result *apiclient.QueryResult) {
 	if len(result.Warnings) == 0 && len(result.Infos) == 0 {
 		return
@@ -407,5 +414,11 @@ func emitQueryAdvisories(result *apiclient.QueryResult) {
 	if len(result.Infos) > 0 {
 		notice["infos"] = result.Infos
 	}
-	output.EmitNotice(os.Stderr, map[string]any{"_notice": map[string]any{"query_advisories": notice}})
+	output.EmitNotice(os.Stderr, map[string]any{"_notice": map[string]any{
+		"query_advisories": notice,
+		"next_steps": []string{
+			"Read the server advisories before treating this result as complete.",
+			"For a truncated result, narrow the selector, aggregate, or raise --limit and retry.",
+		},
+	}})
 }

@@ -167,9 +167,10 @@ it from stdin, which avoids shell-quoting a long PromQL expression.
   reports CLI and Skill status too. Silence update notices with
   `PROMETHEUS_CLI_NO_UPDATE_NOTIFIER=1`, or skip the check per-run with
   `doctor --no-update-check`.
-- stdout is data only; diagnostics, notices and errors go to stderr. A range
-  query's server warnings travel with the result in JSON, and are re-emitted as
-  a `query_advisories` notice on stderr under `--format ndjson`.
+- stdout is data only; diagnostics, notices and errors go to stderr. A query's
+  server warnings travel with the result in JSON, and are re-emitted as a
+  `query_advisories` notice on stderr under `--format ndjson` and whenever
+  `--fields` projects the document.
 - Non-query warnings and infos appear as `_notice.api_advisories` on stderr in
   every format. A truncation warning means discovery is incomplete even when
   `has_more` is false: narrow the selector or increase the limit before claiming

@@ -209,8 +209,12 @@ that can.
 `internal/output` renders JSON (default), a human table, or ndjson. Listings use
 the family envelope `{items, next, has_more}`. A query result is a single
 document in JSON; under `--format ndjson` it streams one series per line and
-re-emits the server's `warnings` as a `query_advisories` notice on **stderr**,
-so a truncation warning is not lost when only the series are piped onward.
+re-emits the server's `warnings` and `infos` as a `query_advisories` notice on
+**stderr**, so a truncation warning is not lost when only the series are piped
+onward. The same notice is emitted under `--fields` in JSON and table output,
+because a projection can drop the document's `warnings` and `infos` keys; an
+unprojected document keeps them in place and emits no notice. The notice
+carries `next_steps` with the narrower-query and limit recovery path.
 
 Non-query advisories use `_notice.api_advisories` on stderr in every format.
 `has_more` describes cursor pagination only; a discovery truncation warning
@@ -259,10 +263,13 @@ entry. A different complete deployment URL cannot use the retained lookup key.
 
 ## Response-integrity applicability across siblings
 
-All six maintained CLIs use the same NDJSON pagination renderer and notice
-shape. Bitbucket, Confluence, Jira and Prometheus resume with `--cursor`;
-OpenObserve uses its existing `--offset`. Jenkins retains the renderer but its
-current endpoints remain unpaginated and emit no continuation notice.
+All seven maintained CLIs use the same NDJSON pagination renderer and notice
+shape. Bitbucket, Confluence, Jira, Prometheus and WeCom Calendar resume with
+`--cursor`; OpenObserve uses its existing `--offset`. Jenkins retains the
+renderer but its current endpoints remain unpaginated and emit no continuation
+notice. In this CLI only `rule list` pages (by rule group); every other listing
+passes an empty page descriptor because its endpoint has no cursor, and
+`internal/output/pagination_test.go` is the family's shared renderer test.
 
 Prometheus-specific response normalization remains local: envelope advisories,
 empty-response validation, mixed float/histogram ordering and empty strings.
