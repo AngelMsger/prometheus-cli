@@ -143,7 +143,7 @@ tree and published at <https://angelmsger.github.io/prometheus-cli/cli/>.
 | `status config\|flags\|runtimeinfo\|buildinfo\|tsdb\|wal-replay\|notifications` | server state |
 | `admin delete-series\|clean-tombstones\|snapshot` | TSDB writes (gated; see below) |
 | `config init\|show\|contexts\|use-context\|set-context` | configuration and named contexts |
-| `auth status\|guide\|login\|logout` | reachability and credential guidance |
+| `auth status\|guide\|login\|reuse\|logout` | reachability, credential guidance and login reuse |
 | `doctor` | diagnose config, credentials, connectivity and the Skill |
 | `skill install\|status\|path\|show\|uninstall` | manage the companion Skill |
 
@@ -247,15 +247,23 @@ make docs       # regenerate docs/cli/ from the cobra command tree
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the layout and conventions, and
 [docs/technical-design.md](docs/technical-design.md) for the architecture.
 
+## Related
+
+Part of a family of agent-facing CLIs — one skeleton, one set of conventions, all
+built for coding agents. Browse the full set at
+**[github.com/AngelMsger](https://github.com/AngelMsger)**:
+
+- **[jira-cli](https://github.com/AngelMsger/jira-cli)** — Jira issues & workflow transitions
+- **[confluence-cli](https://github.com/AngelMsger/confluence-cli)** — Confluence as a knowledge base
+- **[bitbucket-cli](https://github.com/AngelMsger/bitbucket-cli)** — Bitbucket pull requests & code review
+- **[openobserve-cli](https://github.com/AngelMsger/openobserve-cli)** — OpenObserve logs, metrics & traces
+- **[jenkins-cli](https://github.com/AngelMsger/jenkins-cli)** — inspect Jenkins jobs & builds
+- **prometheus-cli** — Prometheus queries, targets, rules & alerts *(this project)*
+- **[wecom-calendar-cli](https://github.com/AngelMsger/wecom-calendar-cli)** — WeCom calendars, synced locally & annotated
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-Sister CLIs: [openobserve-cli](https://angelmsger.github.io/openobserve-cli/) ·
-[jenkins-cli](https://angelmsger.github.io/jenkins-cli/) ·
-[confluence-cli](https://angelmsger.github.io/confluence-cli/) ·
-[bitbucket-cli](https://angelmsger.github.io/bitbucket-cli/) ·
-[jira-cli](https://angelmsger.github.io/jira-cli/)
 
 To associate an existing login with a prepared team context, run
 `prometheus-cli --use-context team auth reuse --dry-run`, then omit `--dry-run`.

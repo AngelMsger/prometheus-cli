@@ -44,6 +44,15 @@ All notable changes to this project are documented here. The format follows
 - Update the companion Skill to 0.1.3 with discovery completeness, pagination and
   bounds guidance; add process-level regression coverage for response integrity.
 
+### Documentation
+
+- Add the family "Related" section to the README and link all six sibling CLIs
+  from the landing-page footer, including `wecom-calendar-cli`.
+- Correct the landing page's install card: `skill install` detects thirteen
+  agent locations (Claude Code, Codex, Cursor and ten more), not two.
+- List `auth reuse` in the README command table and the Skill's `## Commands`
+  block.
+
 ## [0.2.0] - 2026-09-24
 ### Added
 

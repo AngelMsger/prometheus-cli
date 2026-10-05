@@ -146,6 +146,7 @@ prometheus-cli admin snapshot [--skip-head]                                     
 prometheus-cli config init|show                                                  # configuration
 prometheus-cli config contexts|use-context <name>                                # named server contexts
 prometheus-cli auth status|guide                                                 # reachability / credential guidance
+prometheus-cli auth reuse [--from-context <name>] [--dry-run]                    # associate an existing login
 prometheus-cli doctor                                                            # diagnose config / creds / connectivity
 prometheus-cli skill status|install|path|show|uninstall                          # manage the companion Skill
 ```
