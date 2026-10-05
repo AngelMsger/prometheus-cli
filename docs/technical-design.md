@@ -129,6 +129,32 @@ unset value and reject negative durations; the CLI additionally rejects zero
 when `--query-timeout` is explicitly supplied. TSDB cardinality limits are
 validated before building the status request.
 
+## Time window
+
+`query range`, `query exemplars`, `series list`, `labels list`, `labels values`
+and `admin delete-series` share one set of window flags
+(`internal/app/timeflags.go`) and one parser, `Range.Resolve` in `pkg/timeutil`.
+The vocabulary is the family's: `--since <duration>` is a look-back ending now;
+`--from` is a lower bound and `--to` an upper bound that defaults to now.
+`--since` is mutually exclusive with `--from`/`--to`, and `--to` requires
+`--from`.
+
+Both rules are enforced in `Range.Resolve`, before anything is parsed, so no
+command can opt out by accident and library consumers of `pkg/timeutil` get the
+same answer. A violation is `BAD_TIME_RANGE` (usage, exit 2) and sends no
+request. Through v0.2.0 `--since` silently won over an explicit range and a lone
+`--to` was reported as "no time range given"; on `admin delete-series` the
+first of those deleted a window other than the one written. The window stays
+required on the two query commands and optional on the other four — an absent
+optional window still means the server's full retention.
+
+One part of the family contract is deliberately not applied. The family's event
+and history filters are half-open, `[from, to)`. Prometheus documents both
+`start` and `end` as inclusive, and the CLI sends the resolved bounds unchanged,
+so `--to` here is the API's inclusive `end`. Shifting it by a tick would make
+results disagree with every other Prometheus client and with the evaluation
+grid, so adjacent windows share their boundary instant.
+
 ## Step derivation — a deliberate divergence
 
 The sibling `openobserve-cli` requires `--step` on a range query. This CLI makes

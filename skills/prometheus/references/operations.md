@@ -99,7 +99,11 @@ prometheus-cli admin delete-series --match 'up{job="retired"}' --yes
 
 - `delete-series` requires a `--match` selector: without one it would match
   every series. It marks samples deleted; they stop being queryable immediately
-  and leave disk on the next compaction.
+  and leave disk on the next compaction. An optional window narrows it:
+  `--since <duration>`, or `--from` with an optional `--to`. An ambiguous window
+  (`--since` beside `--from`/`--to`, or `--to` alone) is rejected with
+  `BAD_TIME_RANGE` before anything is sent; with no window at all it deletes
+  across the whole retention.
 - `clean-tombstones` erases already-deleted blocks **immediately and
   irreversibly**. It takes no selector — it applies to everything marked deleted
   on the server.

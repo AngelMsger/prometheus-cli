@@ -59,7 +59,9 @@ error:
   evaluation looks back over. `rate(x[5m])` needs at least a few scrapes in
   those 5 minutes.
 - `--since 1h` is the **query window** — the span the expression is evaluated
-  across.
+  across. Write it as `--since <duration>`, or as `--from <instant>` with an
+  optional `--to <instant>` (default now). The two forms are exclusive, and
+  `--to` requires `--from`; `--to` is Prometheus' inclusive `end`.
 
 A rule of thumb: the range selector should be at least 4× the scrape interval
 (`status config` shows `scrape_interval`), and no larger than necessary.

@@ -87,10 +87,12 @@ retry also reports them missing. See
 - **Counters need `rate()`.** A counter's raw value is meaningless (it resets on
   restart). Check the type with `metadata list --metric <name>` before
   aggregating, and never `sum()` a counter without a rate.
-- **Bound every range query.** `--since`/`--from`/`--to` are required for
-  `query range`; prefer the narrowest window that answers the question. The
-  `step` in the result tells you the resolution the numbers are at — quote it
-  when you quote the numbers.
+- **Bound every range query.** `query range` needs a window: `--since 1h`, or
+  `--from` with an optional `--to` (default now). Never mix the two forms —
+  `--since` with `--from`/`--to`, or `--to` without `--from`, is
+  `BAD_TIME_RANGE` (exit 2). Prefer the narrowest window that answers the
+  question. The `step` in the result tells you the resolution the numbers are
+  at — quote it when you quote the numbers.
 - **Cardinality is the cost.** `{__name__=~".+"}` and unbounded selectors can
   overload the server; narrow with label matchers or aggregate with
   `sum by (...)`. `series list` first if you are unsure how wide a selector is.

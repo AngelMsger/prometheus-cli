@@ -220,8 +220,8 @@ that --dry-run prints is the request, not the affected series.</p>
         <tr><td><code>--dry-run</code></td><td><code>false</code></td><td>print the request without sending it</td></tr>
         <tr><td><code>--from</code></td><td></td><td>window start: RFC3339, an epoch, 2006-01-02, or now-1h</td></tr>
         <tr><td><code>--match</code></td><td><code>[]</code></td><td>series selector identifying what to delete (repeatable, required)</td></tr>
-        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
-        <tr><td><code>--to</code></td><td></td><td>window end (default now)</td></tr>
+        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d (not with --from/--to)</td></tr>
+        <tr><td><code>--to</code></td><td></td><td>window end, same forms (default now; requires --from)</td></tr>
         <tr><td><code>--yes</code></td><td><code>false</code></td><td>confirm this destructive write</td></tr>
         </tbody>
       </table>
@@ -504,8 +504,8 @@ when composing a `by (...)` or `without (...)` clause.</p>
         <tr><td><code>--from</code></td><td></td><td>window start: RFC3339, an epoch, 2006-01-02, or now-1h</td></tr>
         <tr><td><code>--limit</code></td><td><code>1000</code></td><td>maximum number of names to return (0 = unlimited)</td></tr>
         <tr><td><code>--match</code></td><td><code>[]</code></td><td>restrict to the series this selector matches (repeatable)</td></tr>
-        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
-        <tr><td><code>--to</code></td><td></td><td>window end (default now)</td></tr>
+        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d (not with --from/--to)</td></tr>
+        <tr><td><code>--to</code></td><td></td><td>window end, same forms (default now; requires --from)</td></tr>
         </tbody>
       </table>
       <h3>Examples</h3><pre>  prometheus-cli labels list --since 1h
@@ -527,8 +527,8 @@ values present on a particular set of series.</p>
         <tr><td><code>--from</code></td><td></td><td>window start: RFC3339, an epoch, 2006-01-02, or now-1h</td></tr>
         <tr><td><code>--limit</code></td><td><code>1000</code></td><td>maximum number of values to return (0 = unlimited)</td></tr>
         <tr><td><code>--match</code></td><td><code>[]</code></td><td>restrict to the series this selector matches (repeatable)</td></tr>
-        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
-        <tr><td><code>--to</code></td><td></td><td>window end (default now)</td></tr>
+        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d (not with --from/--to)</td></tr>
+        <tr><td><code>--to</code></td><td></td><td>window end, same forms (default now; requires --from)</td></tr>
         </tbody>
       </table>
       <h3>Examples</h3><pre><span class="c">  # every metric name on the server</span>
@@ -626,8 +626,8 @@ window is required, and the server must have exemplar storage enabled.</p>
         <tbody>
         <tr><td><code>--from</code></td><td></td><td>window start: RFC3339, an epoch, 2006-01-02, or now-1h</td></tr>
         <tr><td><code>--query</code></td><td></td><td>series selector (or @file / @- to read it from a file or stdin)</td></tr>
-        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
-        <tr><td><code>--to</code></td><td></td><td>window end (default now)</td></tr>
+        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d (not with --from/--to)</td></tr>
+        <tr><td><code>--to</code></td><td></td><td>window end, same forms (default now; requires --from)</td></tr>
         </tbody>
       </table>
       <h3>Examples</h3><pre>  prometheus-cli query exemplars --query &#39;http_request_duration_seconds_bucket&#39; --since 1h</pre>
@@ -703,7 +703,9 @@ returns something other than what was intended.</p>
       <pre>prometheus-cli query range [flags]</pre>
       <p class="long">Runs a range query: the expression is evaluated at every step between the
 start and end of the window, yielding a timestamped series per result —
-the data behind a graph. The window is required (--since, or --from/--to).
+the data behind a graph. The window is required: --since, or --from with
+an optional --to. --since cannot be combined with --from/--to, and --to
+requires --from.
 
 --step is optional. Prometheus rejects a range query resolving to more
 than 11,000 points per series, so with no --step the CLI derives a round
@@ -719,10 +721,10 @@ result, so the resolution behind the numbers is never implicit.</p>
         <tr><td><code>--limit</code></td><td><code>0</code></td><td>maximum number of series to return (0 = unlimited)</td></tr>
         <tr><td><code>--query</code></td><td></td><td>PromQL expression (or @file / @- to read it from a file or stdin)</td></tr>
         <tr><td><code>--query-timeout</code></td><td></td><td>positive server-side evaluation timeout, e.g. 10s (distinct from --timeout, which bounds the HTTP request)</td></tr>
-        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
+        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d (not with --from/--to)</td></tr>
         <tr><td><code>--stats</code></td><td><code>false</code></td><td>include the server&#39;s query execution statistics</td></tr>
         <tr><td><code>--step</code></td><td></td><td>evaluation resolution, e.g. 30s, 1m, 5m (default: derived from the window)</td></tr>
-        <tr><td><code>--to</code></td><td></td><td>window end (default now)</td></tr>
+        <tr><td><code>--to</code></td><td></td><td>window end, same forms (default now; requires --from)</td></tr>
         </tbody>
       </table>
       <h3>Examples</h3><pre><span class="c">  # error rate over the last hour, resolution chosen for you</span>
@@ -812,8 +814,8 @@ cannot flood an agent&#39;s context; pass --limit 0 to lift it.</p>
         <tr><td><code>--from</code></td><td></td><td>window start: RFC3339, an epoch, 2006-01-02, or now-1h</td></tr>
         <tr><td><code>--limit</code></td><td><code>1000</code></td><td>maximum number of series to return (0 = unlimited)</td></tr>
         <tr><td><code>--match</code></td><td><code>[]</code></td><td>series selector, e.g. &#39;up{job=&#34;node&#34;}&#39; (repeatable)</td></tr>
-        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
-        <tr><td><code>--to</code></td><td></td><td>window end (default now)</td></tr>
+        <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d (not with --from/--to)</td></tr>
+        <tr><td><code>--to</code></td><td></td><td>window end, same forms (default now; requires --from)</td></tr>
         </tbody>
       </table>
       <h3>Examples</h3><pre>  prometheus-cli series list --match &#39;up{job=&#34;node&#34;}&#39; --since 1h

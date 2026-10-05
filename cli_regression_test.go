@@ -151,6 +151,59 @@ func TestCLIResponseIntegrity(t *testing.T) {
 		}
 	})
 
+	// Every command that takes the window flags shares one parser, so each
+	// must refuse an ambiguous window — --since beside --from/--to, or --to
+	// with no --from — before it can query, or delete, a window the caller did
+	// not ask for.
+	t.Run("ambiguous windows stay offline", func(t *testing.T) {
+		var requests atomic.Int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { requests.Add(1); w.WriteHeader(500) }))
+		defer server.Close()
+		commands := [][]string{
+			{"query", "range", "--query", "up"},
+			{"query", "exemplars", "--query", "up"},
+			{"series", "list", "--match", "up"},
+			{"labels", "list"},
+			{"labels", "values", "job"},
+			{"admin", "delete-series", "--match", "up", "--dry-run"},
+			{"--allow-writes", "admin", "delete-series", "--match", "up", "--yes"},
+		}
+		windows := []struct {
+			flags []string
+			want  string
+		}{
+			{[]string{"--since", "1h", "--from", "2026-09-01T00:00:00Z"}, "--since cannot be combined with --from or --to"},
+			{[]string{"--since", "1h", "--to", "2026-09-02T00:00:00Z"}, "--since cannot be combined with --from or --to"},
+			{[]string{"--since", "1h", "--from", "2026-09-01T00:00:00Z", "--to", "2026-09-02T00:00:00Z"}, "--since cannot be combined with --from or --to"},
+			{[]string{"--to", "2026-09-02T00:00:00Z"}, "--to requires --from"},
+		}
+		for _, command := range commands {
+			for _, window := range windows {
+				args := append(append([]string{}, command...), window.flags...)
+				_, stderr := run(t, server.URL, 2, args...)
+				var failure struct {
+					Error struct {
+						Category  string   `json:"category"`
+						Code      string   `json:"code"`
+						Message   string   `json:"message"`
+						Hint      string   `json:"hint"`
+						NextSteps []string `json:"next_steps"`
+					} `json:"error"`
+				}
+				if err := json.Unmarshal([]byte(stderr), &failure); err != nil {
+					t.Fatalf("%v: %v: %s", args, err, stderr)
+				}
+				e := failure.Error
+				if e.Category != "usage" || e.Code != "BAD_TIME_RANGE" || !strings.Contains(e.Message, window.want) || e.Hint == "" || len(e.NextSteps) == 0 {
+					t.Fatalf("%v: unexpected error: %s", args, stderr)
+				}
+			}
+		}
+		if requests.Load() != 0 {
+			t.Fatalf("sent %d requests for ambiguous windows", requests.Load())
+		}
+	})
+
 	t.Run("NDJSON exposes a usable cursor", func(t *testing.T) {
 		var resumed atomic.Bool
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

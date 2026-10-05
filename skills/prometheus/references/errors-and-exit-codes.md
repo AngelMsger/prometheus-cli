@@ -71,8 +71,11 @@ fi
 - **`QUERY_EXECUTION` (usage/2)** — the expression parsed but could not run,
   almost always too many samples. Narrow the selector, aggregate with
   `sum by (...)`, shorten the window, or raise `--step`.
-- **`BAD_TIME_RANGE` (usage/2)** — `query range` needs `--since` or
-  `--from`/`--to`, ordered and non-empty.
+- **`BAD_TIME_RANGE` (usage/2)** — the window is unusable. Pass either
+  `--since <duration>` or `--from` with an optional `--to`: `--since` cannot be
+  combined with `--from`/`--to`, `--to` requires `--from`, and the window must
+  be ordered and non-empty. `query range` and `query exemplars` require a
+  window; nothing is sent until it is valid.
 - **`BAD_STEP` (usage/2)** — `--step` must be a positive duration (`30s`, `5m`)
   or a bare number of seconds. Omit it to let the CLI derive one.
 - **`BAD_LIMIT` (usage/2)** — limits must be nonnegative. Use a positive bound,

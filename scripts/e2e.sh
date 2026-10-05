@@ -145,6 +145,21 @@ fi
 echo "ok   - a range query without a window exits 2"
 pass=$((pass + 1))
 
+# --since excludes --from/--to, and --to requires --from: an ambiguous window is
+# refused rather than resolved to whichever flag happens to win.
+for window in "--since 1h --from now-2h" "--since 1h --to now" "--to now"; do
+  set +e
+  # shellcheck disable=SC2086
+  out="$(run query range --query up $window 2>&1 >/dev/null)"; code=$?
+  set -e
+  if [[ "$code" -ne 2 ]] || ! grep -q 'BAD_TIME_RANGE' <<<"$out"; then
+    echo "FAIL - an ambiguous window ($window) should be BAD_TIME_RANGE (exit 2), got $code"
+    echo "$out" | head -5; exit 1
+  fi
+done
+echo "ok   - an ambiguous window exits 2 as BAD_TIME_RANGE"
+pass=$((pass + 1))
+
 set +e
 run status nosuchtopic >/dev/null 2>&1; code=$?
 set -e

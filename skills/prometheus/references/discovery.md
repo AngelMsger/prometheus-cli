@@ -27,7 +27,9 @@ Metric names live in the reserved `__name__` label, which is why
 one the server scans its entire retention, which is slow on a large instance and
 will surface long-deleted series. With one you get "what exists now", which is
 almost always the question. Use a window that covers the incident you are
-investigating.
+investigating. Write it as `--since <duration>`, or as `--from` with an optional
+`--to`: mixing the two forms, or passing `--to` alone, fails with
+`BAD_TIME_RANGE` instead of picking one.
 
 `series list`, `labels list` and `labels values` apply a default `--limit` so a
 stray call cannot flood the context. Pass `--limit 0` to lift it when you

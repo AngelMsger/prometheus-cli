@@ -1,6 +1,7 @@
 package timeutil
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -107,6 +108,66 @@ func TestRangeResolve(t *testing.T) {
 			}
 		}
 	})
+}
+
+// The family time-window contract: --since is a look-back that excludes
+// --from/--to, and --to needs a --from to bound. A window that breaks either
+// rule must fail instead of resolving to something the caller did not ask for
+// — --since silently winning over an explicit range is a different window, and
+// on `admin delete-series` a different set of deleted samples.
+func TestRangeResolveRejectsAmbiguousOrUnusableWindows(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		r    Range
+		want string
+	}{
+		{"since with from", Range{Since: "24h", From: "2026-09-03"}, "--since cannot be combined"},
+		{"since with to", Range{Since: "24h", To: "2026-09-03"}, "--since cannot be combined"},
+		{"since with from and to", Range{Since: "24h", From: "2026-09-03", To: "2026-09-04"}, "--since cannot be combined"},
+		{"to without from", Range{To: "2026-09-04"}, "--to requires --from"},
+		{"no bound", Range{}, "no time range given"},
+		{"reversed", Range{From: "now", To: "now-1h"}, "empty time range"},
+		{"empty", Range{From: "2026-09-03", To: "2026-09-03"}, "empty time range"},
+		{"zero since", Range{Since: "0s"}, "invalid --since"},
+		{"negative since", Range{Since: "-1h"}, "invalid --since"},
+		{"date as since", Range{Since: "2026-09-03"}, "invalid --since"},
+		{"bad from", Range{From: "soon"}, "invalid --from"},
+		{"bad to", Range{From: "2026-09-03", To: "later"}, "invalid --to"},
+		{"from past the default end", Range{From: "now+1h"}, "empty time range"},
+	} {
+		tc.r.Now = reference
+		_, _, err := tc.r.Resolve()
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: Resolve error = %v, want it to contain %q", tc.name, err, tc.want)
+		}
+	}
+}
+
+// The exclusivity rules reject combinations, not the flags themselves: each
+// valid spelling of a window still resolves to the bounds it names.
+func TestRangeResolveKeepsEveryValidWindow(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name       string
+		r          Range
+		start, end time.Time
+	}{
+		{"since", Range{Since: "7d"}, reference.Add(-7 * 24 * time.Hour), reference},
+		{"from alone ends now", Range{From: "2026-09-19"}, time.Date(2026, 9, 19, 0, 0, 0, 0, time.UTC), reference},
+		{"from and to", Range{From: "2026-09-18T00:00:00+08:00", To: "2026-09-19"},
+			time.Date(2026, 9, 17, 16, 0, 0, 0, time.UTC), time.Date(2026, 9, 19, 0, 0, 0, 0, time.UTC)},
+	} {
+		tc.r.Now = reference
+		start, end, err := tc.r.Resolve()
+		if err != nil {
+			t.Errorf("%s: %v", tc.name, err)
+			continue
+		}
+		if !start.Equal(tc.start) || !end.Equal(tc.end) {
+			t.Errorf("%s: got %s..%s, want %s..%s", tc.name, start, end, tc.start, tc.end)
+		}
+	}
 }
 
 // A sample timestamp must survive the round trip the CLI performs on every

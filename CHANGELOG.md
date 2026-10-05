@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Time-window flags follow the family contract.** `--since` is now mutually
+  exclusive with `--from`/`--to`, and `--to` requires `--from`, on every command
+  that takes a window: `query range`, `query exemplars`, `series list`,
+  `labels list`, `labels values` and `admin delete-series`. A violation is
+  `BAD_TIME_RANGE` (usage, exit 2) and sends no request. Previously `--since`
+  silently won over an explicit `--from`/`--to` — on `admin delete-series`,
+  deleting a window other than the one written — and `--to` alone was reported
+  as "no time range given". Scripts that passed both forms must drop one.
+- **`pkg/timeutil`: `Range.Resolve` enforces the same rules.** The exported
+  shape is unchanged, but a `Range` that sets `Since` together with `From` or
+  `To`, or `To` without `From`, now returns an error instead of resolving.
+  Library consumers that relied on `Since` taking precedence must clear the
+  other fields.
+
 ### Fixed
 
 - Preserve discovery truncation warnings and info annotations in structured

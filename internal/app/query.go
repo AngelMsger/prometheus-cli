@@ -146,7 +146,9 @@ func newQueryRangeCmd(s *appState) *cobra.Command {
 		Short:   "Evaluate a PromQL expression across a time window",
 		Long: "Runs a range query: the expression is evaluated at every step between the\n" +
 			"start and end of the window, yielding a timestamped series per result —\n" +
-			"the data behind a graph. The window is required (--since, or --from/--to).\n\n" +
+			"the data behind a graph. The window is required: --since, or --from with\n" +
+			"an optional --to. --since cannot be combined with --from/--to, and --to\n" +
+			"requires --from.\n\n" +
 			"--step is optional. Prometheus rejects a range query resolving to more\n" +
 			"than 11,000 points per series, so with no --step the CLI derives a round\n" +
 			"resolution for the window, and an explicit --step that would overrun the\n" +

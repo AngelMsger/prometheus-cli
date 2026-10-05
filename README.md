@@ -187,6 +187,11 @@ not that a discovery limit returned every match. Narrow `--match` or increase
 Limits must be nonnegative; an explicit `--query-timeout` must be positive.
 Invalid bounds return usage errors before sending a request.
 
+A time window is either `--since <duration>` or `--from` with an optional `--to`
+(default now). `--since` cannot be combined with `--from`/`--to`, and `--to`
+requires `--from`; an ambiguous window is `BAD_TIME_RANGE` (exit 2), never a
+guess.
+
 Every failure is JSON on stderr with a `category`, a stable `code`, a `hint` and
 `next_steps`, and each category maps to a fixed exit code:
 

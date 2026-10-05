@@ -76,6 +76,13 @@ enforced by tests; read the reason before altering them.
   valid only for delete-series and clean-tombstones; read and snapshot endpoints
   require a Prometheus response envelope. Test these contracts with synthetic
   local fixtures, never with internal service addresses in committed tests.
+- **The window flags are exclusive on purpose.** `--since` cannot be combined
+  with `--from`/`--to`, and `--to` requires `--from`. The shared parser
+  (`Range.Resolve` in `pkg/timeutil`) enforces both for every command that
+  registers `timeFlags`; do not re-implement the check per command or let one
+  flag silently win — on `admin delete-series` a guessed window deletes the
+  wrong samples. `--to` is Prometheus' inclusive `end`, not the family's
+  exclusive bound; the reason is in `docs/technical-design.md`.
 - **PromQL failures are usage errors.** `bad_data` and `execution` classify as
   `usage` (exit 2), not `server`; retrying them unchanged cannot help.
 - **`--step` is optional on purpose.** The sibling `openobserve-cli` requires it;

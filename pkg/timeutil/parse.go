@@ -9,6 +9,11 @@
 // query API, so the CLI owns it and accepts forgiving inputs (--since 1h,
 // RFC3339, bare dates, epoch seconds/millis/micros and now±duration).
 //
+// The window vocabulary is the shared contract of the agent-facing CLI family:
+// --since is a look-back ending now, --from a lower bound and --to an upper
+// bound that defaults to now; --since excludes --from/--to, and --to requires
+// --from. Range.Resolve enforces those rules for every caller.
+//
 // This package backs prometheus-cli and is also importable as a library; see
 // the repository README. Its rendered timestamp formats are consumed by agents
 // parsing CLI output — keep them stable and extend additively.
@@ -23,9 +28,10 @@ import (
 	"time"
 )
 
-// Range is an unresolved time window described by flags. Exactly one of Since
-// or (From/To) is normally provided. Now, when zero, defaults to time.Now() —
-// tests set it for determinism.
+// Range is an unresolved time window described by flags. Either Since or From
+// (optionally with To) is provided: the family contract makes --since
+// mutually exclusive with --from/--to, and --to require --from. Now, when
+// zero, defaults to time.Now() — tests set it for determinism.
 type Range struct {
 	Since string
 	From  string
@@ -33,9 +39,21 @@ type Range struct {
 	Now   time.Time
 }
 
-// Resolve turns the Range into start/end instants. The window is validated to
-// be non-empty and correctly ordered.
+// Resolve turns the Range into start/end instants. It enforces the flag
+// exclusivity rules before parsing anything, then validates the window to be
+// non-empty and correctly ordered.
+//
+// A Range that sets Since together with From or To, or To without From, is an
+// error. Resolve used to let Since win silently and to report a lone To as "no
+// time range given"; either way the caller got a window other than the one
+// written, which on a delete is the wrong set of samples.
 func (r Range) Resolve() (start, end time.Time, err error) {
+	if r.Since != "" && (r.From != "" || r.To != "") {
+		return time.Time{}, time.Time{}, fmt.Errorf("--since cannot be combined with --from or --to")
+	}
+	if r.To != "" && r.From == "" {
+		return time.Time{}, time.Time{}, fmt.Errorf("--to requires --from")
+	}
 	now := r.Now
 	if now.IsZero() {
 		now = time.Now()
