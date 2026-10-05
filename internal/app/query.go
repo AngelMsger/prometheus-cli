@@ -51,7 +51,7 @@ func addQueryFlags(cmd *cobra.Command, q *queryFlags) {
 	f := cmd.Flags()
 	f.StringVar(&q.query, "query", "", "PromQL expression (or @file / @- to read it from a file or stdin)")
 	f.StringVar(&q.queryTimeout, "query-timeout", "",
-		"server-side evaluation timeout, e.g. 10s (distinct from --timeout, which bounds the HTTP request)")
+		"positive server-side evaluation timeout, e.g. 10s (distinct from --timeout, which bounds the HTTP request)")
 	f.IntVar(&q.limit, "limit", 0, "maximum number of series to return (0 = unlimited)")
 	f.BoolVar(&q.stats, "stats", false, "include the server's query execution statistics")
 	_ = cmd.MarkFlagRequired("query")
@@ -69,6 +69,11 @@ func (q queryFlags) resolve() (promql string, timeout time.Duration, err error) 
 			return "", 0, cerrors.Wrap(err, cerrors.CategoryUsage, "BAD_QUERY_TIMEOUT",
 				"invalid --query-timeout "+q.queryTimeout).
 				WithHint("Use a duration such as 10s, 30s or 2m.")
+		}
+		if timeout <= 0 {
+			return "", 0, cerrors.New(cerrors.CategoryUsage, "BAD_QUERY_TIMEOUT", "--query-timeout must be positive").
+				WithHint("Use a positive duration, or omit --query-timeout for the server's default.").
+				WithNextSteps("prometheus-cli query instant --help")
 		}
 	}
 	return promql, timeout, nil

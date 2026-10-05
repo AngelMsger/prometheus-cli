@@ -77,8 +77,18 @@ Prometheus returns one envelope from every `/api/v1` endpoint:
   result is a plausible answer to almost any query. Failing loudly turns a
   misconfiguration into a diagnosis instead of a confident wrong answer.
 
-A 204 with no body (the admin endpoints' success) is success, not a decode
-failure.
+A bodyless 204 is accepted only for the POST delete-series and clean-tombstones
+operations. Empty 200 responses and 204 responses from read or snapshot
+operations are `NOT_PROMETHEUS_API`, never a successful empty result.
+
+`Config.OnAdvisory` and `BuildParams.OnAdvisory` are optional synchronous
+callbacks for successful response warnings and infos. `Advisory` carries the API
+path (without the server address), warnings and infos. Existing slice-returning
+client methods and `Client` implementations remain source-compatible; library
+consumers can opt into metadata without changing how they consume data. A
+callback used with concurrent requests must be thread-safe. The CLI emits
+non-query advisories on stderr; query advisories retain their existing output
+path so they are not duplicated.
 
 ## Normalized models
 
@@ -90,6 +100,8 @@ here so no caller has to:
   rendering. `value` stays a **string**, because `NaN` and `+Inf` are not JSON
   numbers and re-encoding a float loses digits the server sent. Native
   histogram samples keep their body verbatim under `histogram`.
+  Explicit empty strings retain `value: ""`; histogram samples have no `value`
+  field. Float and histogram arrays are merged into timestamp order.
 - **Two-array results.** Targets (`activeTargets`/`droppedTargets`) and
   Alertmanagers (`active`/`dropped`) become one list with an explicit `state`,
   so "what is broken" is one listing and one filter. A dropped target's
@@ -110,6 +122,12 @@ proxies accept in a URL, and Prometheus supports POST on all of them for exactly
 that reason. `--query @file` and `--query @-` exist for the same problem one
 layer up: shell-quoting an expression full of braces, quotes and backslashes is
 where agents and humans both slip.
+
+Limit validation lives in the client request builders: negative limits are usage
+errors and send no request. Query request structs retain zero timeout as their
+unset value and reject negative durations; the CLI additionally rejects zero
+when `--query-timeout` is explicitly supplied. TSDB cardinality limits are
+validated before building the status request.
 
 ## Step derivation — a deliberate divergence
 
@@ -194,11 +212,27 @@ document in JSON; under `--format ndjson` it streams one series per line and
 re-emits the server's `warnings` as a `query_advisories` notice on **stderr**,
 so a truncation warning is not lost when only the series are piped onward.
 
+Non-query advisories use `_notice.api_advisories` on stderr in every format.
+`has_more` describes cursor pagination only; a discovery truncation warning
+requires a narrower selector or a higher limit even when `has_more` is false.
+NDJSON listings emit `_notice.pagination` with `next` and `has_more` on stderr
+after successfully writing the rows. Empty filtered pages retain this notice
+when there is a continuation cursor. JSON and table pagination are unchanged.
+
+The family renderer exposes `Options.NoticeWriter` (nil means stderr) and
+`Options.NextFlag` (empty means `--cursor`). Prometheus uses that default;
+offset-based siblings set their actual continuation flag. A failed row write
+does not emit a continuation notice, and completed pages emit none.
+
 `--fields a,b.c` projects each record to those dot-paths. Projection applies to
 the emitted document, so for a query result use it together with
 `--format ndjson`, where each line is a series.
 
 ## Testing
+
+`cli_regression_test.go` builds the executable and verifies real stdout/stderr,
+exit status, discovery advisories, cursor continuation, empty responses and
+pre-request validation against isolated synthetic HTTP fixtures.
 
 - `go test ./...` — unit tests, including the normalization, error
   classification, step derivation and credential contracts, plus
@@ -222,3 +256,16 @@ again before writing. See the installation guide for the result and recovery con
 Equivalent service URL overrides preserve the persisted native credential lookup
 key without redirecting requests or copying secrets. Logout removes that same
 entry. A different complete deployment URL cannot use the retained lookup key.
+
+## Response-integrity applicability across siblings
+
+All six maintained CLIs use the same NDJSON pagination renderer and notice
+shape. Bitbucket, Confluence, Jira and Prometheus resume with `--cursor`;
+OpenObserve uses its existing `--offset`. Jenkins retains the renderer but its
+current endpoints remain unpaginated and emit no continuation notice.
+
+Prometheus-specific response normalization remains local: envelope advisories,
+empty-response validation, mixed float/histogram ordering and empty strings.
+OpenObserve intentionally exposes raw PromQL tuples; other siblings use their
+own REST response models. The family adds no shared runtime dependency, and the
+documented automatic range-step difference remains.

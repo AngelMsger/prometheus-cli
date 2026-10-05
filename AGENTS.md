@@ -66,6 +66,16 @@ enforced by tests; read the reason before altering them.
   tenant is a distributed service preset, not a per-person setting.
 - **`none` is a real auth scheme, and the default.** Prometheus has no accounts.
   Nothing may require a credential, a keychain read, or a login for it.
+- **Response integrity must survive normalization and rendering.** Preserve
+  discovery warnings/infos through `OnAdvisory`, and NDJSON continuation cursors
+  through stderr notices, including empty filtered pages. `has_more` describes
+  cursor pagination, not whether discovery was truncated. Keep mixed float and
+  histogram samples in timestamp order and preserve explicit empty strings.
+- **Invalid bounds must not become unbounded requests.** Reject negative limits
+  and nonpositive explicit query timeouts before network I/O. A bodyless 204 is
+  valid only for delete-series and clean-tombstones; read and snapshot endpoints
+  require a Prometheus response envelope. Test these contracts with synthetic
+  local fixtures, never with internal service addresses in committed tests.
 - **PromQL failures are usage errors.** `bad_data` and `execution` classify as
   `usage` (exit 2), not `server`; retrying them unchanged cannot help.
 - **`--step` is optional on purpose.** The sibling `openobserve-cli` requires it;

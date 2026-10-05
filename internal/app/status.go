@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	"github.com/angelmsger/prometheus-cli/pkg/apiclient"
+	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -81,6 +82,11 @@ func newStatusTopicCmd(s *appState, topic string) *cobra.Command {
 		Long:  doc[1],
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if limit < 0 {
+				return cerrors.New(cerrors.CategoryUsage, "BAD_LIMIT", "--limit must be nonnegative").
+					WithHint("Use a positive limit, or 0 for the server's default.").
+					WithNextSteps("prometheus-cli status tsdb --help")
+			}
 			query := url.Values{}
 			if topic == "tsdb" && limit > 0 {
 				query.Set("limit", fmt.Sprint(limit))

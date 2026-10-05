@@ -132,6 +132,21 @@ type Sample struct {
 	Histogram json.RawMessage `json:"histogram,omitempty"`
 }
 
+// MarshalJSON preserves an explicitly empty string sample while keeping a
+// histogram sample's alternative value field absent. Value remains a string
+// in the public Go API for existing consumers.
+func (s Sample) MarshalJSON() ([]byte, error) {
+	type sample Sample
+	var value *string
+	if len(s.Histogram) == 0 {
+		value = &s.Value
+	}
+	return json.Marshal(struct {
+		sample
+		Value *string `json:"value,omitempty"`
+	}{sample: sample(s), Value: value})
+}
+
 // Series is one result series: its label set plus either a single sample
 // (instant queries) or a list of samples (range queries).
 type Series struct {

@@ -39,6 +39,11 @@ whenever a derived series looks stale.
 On an instance with many firing alerts, the per-rule `alerts` array is most of
 the response — `--exclude-alerts` drops it.
 
+Under `--format ndjson`, continuation metadata is on stderr in
+`_notice.pagination`: pass `next` as `--cursor` while `has_more` is true. A page
+can have no matching rows after `--failing` filtering and still have a next
+cursor. Do not stop based only on the number of emitted rows.
+
 ## Alerts
 
 ```bash

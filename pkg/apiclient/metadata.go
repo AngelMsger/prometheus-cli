@@ -14,6 +14,12 @@ import (
 // metric name, so the result is a stable, filterable list like every other
 // listing in the family rather than a map an agent has to walk.
 func (c *apiClient) Metadata(ctx context.Context, req MetadataRequest) ([]MetricMetadata, error) {
+	if err := validateLimit("limit", req.Limit); err != nil {
+		return nil, err
+	}
+	if err := validateLimit("limit-per-metric", req.LimitPerMetric); err != nil {
+		return nil, err
+	}
 	query := url.Values{}
 	if req.Metric != "" {
 		query.Set("metric", req.Metric)
@@ -57,6 +63,9 @@ func (c *apiClient) Metadata(ctx context.Context, req MetadataRequest) ([]Metric
 
 // TargetMetadata returns metric metadata as scrape targets report it.
 func (c *apiClient) TargetMetadata(ctx context.Context, req TargetMetadataRequest) ([]TargetMetadata, error) {
+	if err := validateLimit("limit", req.Limit); err != nil {
+		return nil, err
+	}
 	query := url.Values{}
 	if req.MatchTarget != "" {
 		query.Set("match_target", req.MatchTarget)

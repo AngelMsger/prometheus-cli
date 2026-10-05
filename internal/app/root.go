@@ -85,6 +85,8 @@ func newRootCmdWithState() (*cobra.Command, *appState) {
 			"alerts. It emits agent-friendly JSON with structured errors, and works with\n" +
 			"any Prometheus-compatible server (Prometheus, Thanos, Cortex/Mimir,\n" +
 			"VictoriaMetrics).\n\n" +
+			"NDJSON lists keep rows on stdout and emit pagination notices on stderr;\n" +
+			"pass the notice's next value as --cursor to continue.\n\n" +
 			"AGENT NOTE: a companion Skill (\"prometheus\") carries the canonical usage,\n" +
 			"safety modes, and env setup and is the source of truth for driving this CLI.\n" +
 			"If you are an agent, load that Skill before composing commands. Check status\n" +

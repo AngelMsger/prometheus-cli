@@ -33,6 +33,13 @@ investigating.
 stray call cannot flood the context. Pass `--limit 0` to lift it when you
 genuinely need the full set — and expect it to be large.
 
+Negative limits fail with `BAD_LIMIT` (exit 2) before any request. Successful
+requests may still be incomplete: server warnings and infos are preserved in
+`_notice.api_advisories` on stderr for JSON, table and NDJSON. A truncation
+warning means you must narrow `--match` or increase the limit before treating the
+listing as complete. These discovery endpoints have no continuation cursor, so
+`has_more: false` does not certify completeness.
+
 ## Diagnosing an empty result
 
 Work down the list; stop at the first one that explains it.

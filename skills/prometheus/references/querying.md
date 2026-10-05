@@ -24,7 +24,8 @@ CLI returns named fields instead:
 cannot survive a JSON number. Quote the `time`, not the `timestamp`.
 
 Native histogram samples come back with a `histogram` object in place of
-`value`, passed through verbatim.
+`value`, passed through verbatim. Mixed float/histogram samples stay ordered by
+timestamp. An explicitly empty string retains `value: ""`.
 
 ## The step
 
@@ -100,9 +101,12 @@ resolved to.
 
 ## Server-side limits
 
-- `--limit N` caps the number of returned series (server-side).
+- `--limit N` caps the number of returned series (server-side); N must be
+  nonnegative, with 0 meaning unlimited.
 - `--query-timeout 10s` bounds evaluation on the server. It is distinct from the
   global `--timeout`, which bounds the HTTP request from this side.
+  An explicitly supplied query timeout must be positive; omit it to use the
+  server's default. Invalid limits/timeouts fail before sending a request.
 - A `422` (`QUERY_EXECUTION`) means the expression parsed but could not run —
   usually too many samples. Narrow the selector, aggregate, shorten the window,
   or raise the step.

@@ -21,7 +21,9 @@ func (c *apiClient) Series(ctx context.Context, req SeriesRequest) ([]SeriesRef,
 	form := url.Values{}
 	addMatchers(form, req.Match)
 	addWindow(form, req.Start, req.End)
-	addLimit(form, req.Limit)
+	if err := addLimit(form, req.Limit); err != nil {
+		return nil, err
+	}
 
 	env, err := c.post(ctx, apiPath("/series"), form)
 	if err != nil {
@@ -43,7 +45,9 @@ func (c *apiClient) LabelNames(ctx context.Context, req LabelsRequest) ([]string
 	form := url.Values{}
 	addMatchers(form, req.Match)
 	addWindow(form, req.Start, req.End)
-	addLimit(form, req.Limit)
+	if err := addLimit(form, req.Limit); err != nil {
+		return nil, err
+	}
 
 	env, err := c.post(ctx, apiPath("/labels"), form)
 	if err != nil {
@@ -69,7 +73,9 @@ func (c *apiClient) LabelValues(ctx context.Context, name string, req LabelsRequ
 	query := url.Values{}
 	addMatchers(query, req.Match)
 	addWindow(query, req.Start, req.End)
-	addLimit(query, req.Limit)
+	if err := addLimit(query, req.Limit); err != nil {
+		return nil, err
+	}
 
 	env, err := c.get(ctx, apiPath("/label/"+url.PathEscape(name)+"/values"), query)
 	if err != nil {
@@ -103,8 +109,12 @@ func addWindow(v url.Values, start, end time.Time) {
 }
 
 // addLimit appends a positive limit; zero means the endpoint's "disabled".
-func addLimit(v url.Values, limit int) {
+func addLimit(v url.Values, limit int) error {
+	if err := validateLimit("limit", limit); err != nil {
+		return err
+	}
 	if limit > 0 {
 		v.Set("limit", fmt.Sprint(limit))
 	}
+	return nil
 }

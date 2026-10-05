@@ -3,6 +3,8 @@ package output
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
 )
 
@@ -61,5 +63,76 @@ func TestBadFormat(t *testing.T) {
 	var buf bytes.Buffer
 	if err := Emit(map[string]any{}, Options{Format: "yaml", Writer: &buf}); err == nil {
 		t.Error("expected error for unknown format")
+	}
+}
+
+func TestNDJSONPaginationNoticeSurvivesProjectionAndEmptyPages(t *testing.T) {
+	for _, items := range [][]map[string]any{nil, {{"name": "rule", "extra": true}}} {
+		var data, notices bytes.Buffer
+		if err := EmitList(items, "opaque-cursor", true, Options{
+			Format: FormatNDJSON, Writer: &data, NoticeWriter: &notices, Fields: []string{"name"},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Contains(data.Bytes(), []byte("opaque-cursor")) || bytes.Contains(data.Bytes(), []byte("extra")) {
+			t.Fatalf("metadata contaminated rows: %s", data.String())
+		}
+		if bytes.Count(data.Bytes(), []byte("\n")) != len(items) {
+			t.Fatal("row count changed")
+		}
+		var notice struct {
+			Notice struct {
+				Pagination struct {
+					Next    string `json:"next"`
+					HasMore bool   `json:"has_more"`
+				} `json:"pagination"`
+			} `json:"_notice"`
+		}
+		if err := json.Unmarshal(notices.Bytes(), &notice); err != nil {
+			t.Fatal(err)
+		}
+		if notice.Notice.Pagination.Next != "opaque-cursor" || !notice.Notice.Pagination.HasMore {
+			t.Fatalf("cursor lost: %s", notices.String())
+		}
+	}
+	var data, notices bytes.Buffer
+	if err := EmitList(nil, "", false, Options{Format: FormatNDJSON, Writer: &data, NoticeWriter: &notices}); err != nil {
+		t.Fatal(err)
+	}
+	if notices.Len() != 0 {
+		t.Fatal("a complete stream should not emit a continuation notice")
+	}
+}
+
+func TestPaginationUsesTheCommandsContinuationFlag(t *testing.T) {
+	for _, format := range []string{FormatNDJSON, FormatTable} {
+		t.Run(format, func(t *testing.T) {
+			var data, notices bytes.Buffer
+			if err := EmitList([]map[string]any{{"name": "row"}}, "7", true, Options{
+				Format: format, Writer: &data, NoticeWriter: &notices, NextFlag: "--offset",
+			}); err != nil {
+				t.Fatal(err)
+			}
+			combined := data.String() + notices.String()
+			if !strings.Contains(combined, "--offset") || strings.Contains(combined, "--cursor") {
+				t.Fatalf("wrong continuation flag: %s", combined)
+			}
+		})
+	}
+}
+
+type failingPaginationWriter struct{}
+
+func (failingPaginationWriter) Write([]byte) (int, error) {
+	return 0, errors.New("row write failed")
+}
+
+func TestFailedNDJSONWriteDoesNotEmitContinuation(t *testing.T) {
+	var notices bytes.Buffer
+	err := EmitList([]map[string]any{{"name": "row"}}, "next", true, Options{
+		Format: FormatNDJSON, Writer: failingPaginationWriter{}, NoticeWriter: &notices,
+	})
+	if err == nil || notices.Len() != 0 {
+		t.Fatalf("err=%v notices=%s", err, notices.String())
 	}
 }

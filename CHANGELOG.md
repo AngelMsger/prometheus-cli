@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve discovery truncation warnings and info annotations in structured
+  stderr notices; expose an optional `OnAdvisory` callback to library consumers
+  without changing existing client method signatures.
+- Reject empty HTTP 200 responses and unexpected 204 responses as
+  `NOT_PROMETHEUS_API`; retain valid bodyless delete and cleanup responses.
+- Reject negative limits and nonpositive explicit query timeouts before sending
+  requests instead of silently dropping those bounds.
+- Preserve NDJSON pagination cursors in stderr notices, even for empty pages.
+- Align the pagination renderer across the maintained CLI family; continuation
+  guidance uses the command's actual cursor or offset flag and never follows a
+  failed row write.
+- Merge float and native-histogram samples chronologically, and preserve the
+  `value` field for empty string samples without adding it to histogram samples.
+- Update the companion Skill to 0.1.3 with discovery completeness, pagination and
+  bounds guidance; add process-level regression coverage for response integrity.
+
 ## [0.2.0] - 2026-09-24
 ### Added
 

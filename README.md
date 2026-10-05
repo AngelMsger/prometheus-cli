@@ -176,6 +176,17 @@ Listings use `{items, next, has_more}`. `--fields a,b.c` projects each record to
 those dot-paths; `--format ndjson` streams one record per line. For a query
 result, combine the two — each ndjson line is a series.
 
+NDJSON listings preserve continuation metadata in a structured
+`_notice.pagination` record on stderr; pass its `next` as `--cursor`.
+Non-query API warnings and infos, including truncated discovery results, appear
+in `_notice.api_advisories` on stderr in every format. Read these notices before
+treating a result as complete: `has_more: false` means no cursor page follows,
+not that a discovery limit returned every match. Narrow `--match` or increase
+`--limit` when the server reports truncation.
+
+Limits must be nonnegative; an explicit `--query-timeout` must be positive.
+Invalid bounds return usage errors before sending a request.
+
 Every failure is JSON on stderr with a `category`, a stable `code`, a `hint` and
 `next_steps`, and each category maps to a fixed exit code:
 

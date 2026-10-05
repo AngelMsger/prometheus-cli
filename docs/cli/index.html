@@ -131,6 +131,9 @@ alerts. It emits agent-friendly JSON with structured errors, and works with
 any Prometheus-compatible server (Prometheus, Thanos, Cortex/Mimir,
 VictoriaMetrics).
 
+NDJSON lists keep rows on stdout and emit pagination notices on stderr;
+pass the notice&#39;s next value as --cursor to continue.
+
 AGENT NOTE: a companion Skill (&#34;prometheus&#34;) carries the canonical usage,
 safety modes, and env setup and is the source of truth for driving this CLI.
 If you are an agent, load that Skill before composing commands. Check status
@@ -661,7 +664,7 @@ single number.</p>
         <tbody>
         <tr><td><code>--limit</code></td><td><code>0</code></td><td>maximum number of series to return (0 = unlimited)</td></tr>
         <tr><td><code>--query</code></td><td></td><td>PromQL expression (or @file / @- to read it from a file or stdin)</td></tr>
-        <tr><td><code>--query-timeout</code></td><td></td><td>server-side evaluation timeout, e.g. 10s (distinct from --timeout, which bounds the HTTP request)</td></tr>
+        <tr><td><code>--query-timeout</code></td><td></td><td>positive server-side evaluation timeout, e.g. 10s (distinct from --timeout, which bounds the HTTP request)</td></tr>
         <tr><td><code>--stats</code></td><td><code>false</code></td><td>include the server&#39;s query execution statistics</td></tr>
         <tr><td><code>--time</code></td><td></td><td>evaluation instant: RFC3339, an epoch, 2006-01-02, or now-1h (default now)</td></tr>
         </tbody>
@@ -715,7 +718,7 @@ result, so the resolution behind the numbers is never implicit.</p>
         <tr><td><code>--from</code></td><td></td><td>window start: RFC3339, an epoch, 2006-01-02, or now-1h</td></tr>
         <tr><td><code>--limit</code></td><td><code>0</code></td><td>maximum number of series to return (0 = unlimited)</td></tr>
         <tr><td><code>--query</code></td><td></td><td>PromQL expression (or @file / @- to read it from a file or stdin)</td></tr>
-        <tr><td><code>--query-timeout</code></td><td></td><td>server-side evaluation timeout, e.g. 10s (distinct from --timeout, which bounds the HTTP request)</td></tr>
+        <tr><td><code>--query-timeout</code></td><td></td><td>positive server-side evaluation timeout, e.g. 10s (distinct from --timeout, which bounds the HTTP request)</td></tr>
         <tr><td><code>--since</code></td><td></td><td>look back this far from now, e.g. 15m, 1h, 24h, 7d</td></tr>
         <tr><td><code>--stats</code></td><td><code>false</code></td><td>include the server&#39;s query execution statistics</td></tr>
         <tr><td><code>--step</code></td><td></td><td>evaluation resolution, e.g. 30s, 1m, 5m (default: derived from the window)</td></tr>

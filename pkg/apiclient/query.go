@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"sort"
 	"time"
 
 	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
@@ -22,7 +23,9 @@ func (c *apiClient) Query(ctx context.Context, req InstantRequest) (*QueryResult
 	if !req.Time.IsZero() {
 		form.Set("time", timeutil.FormatInstant(req.Time))
 	}
-	addQueryOptions(form, req.Timeout, req.Limit, req.Stats)
+	if err := addQueryOptions(form, req.Timeout, req.Limit, req.Stats); err != nil {
+		return nil, err
+	}
 
 	env, err := c.post(ctx, apiPath("/query"), form)
 	if err != nil {
@@ -50,7 +53,9 @@ func (c *apiClient) QueryRange(ctx context.Context, req RangeRequest) (*QueryRes
 	form.Set("start", timeutil.FormatInstant(req.Start))
 	form.Set("end", timeutil.FormatInstant(req.End))
 	form.Set("step", timeutil.FormatDuration(req.Step))
-	addQueryOptions(form, req.Timeout, req.Limit, req.Stats)
+	if err := addQueryOptions(form, req.Timeout, req.Limit, req.Stats); err != nil {
+		return nil, err
+	}
 
 	env, err := c.post(ctx, apiPath("/query_range"), form)
 	if err != nil {
@@ -67,7 +72,15 @@ func (c *apiClient) QueryRange(ctx context.Context, req RangeRequest) (*QueryRes
 
 // addQueryOptions applies the options shared by the instant and range
 // endpoints. Zero values are left out so the server's own defaults apply.
-func addQueryOptions(form url.Values, timeout time.Duration, limit int, stats bool) {
+func addQueryOptions(form url.Values, timeout time.Duration, limit int, stats bool) error {
+	if err := validateLimit("limit", limit); err != nil {
+		return err
+	}
+	if timeout < 0 {
+		return cerrors.New(cerrors.CategoryUsage, "BAD_QUERY_TIMEOUT", "query timeout cannot be negative").
+			WithHint("Use a positive duration, or leave the timeout unset.").
+			WithNextSteps("prometheus-cli query instant --help")
+	}
 	if timeout > 0 {
 		form.Set("timeout", timeutil.FormatDuration(timeout))
 	}
@@ -77,6 +90,7 @@ func addQueryOptions(form url.Values, timeout time.Duration, limit int, stats bo
 	if stats {
 		form.Set("stats", "all")
 	}
+	return nil
 }
 
 // QueryExemplars returns the exemplars attached to a selector over a window.
@@ -238,6 +252,9 @@ func decodeSeriesList(raw json.RawMessage) ([]Series, error) {
 				return nil, err
 			}
 			s.Values = append(s.Values, samples...)
+			sort.SliceStable(s.Values, func(i, j int) bool {
+				return s.Values[i].Timestamp < s.Values[j].Timestamp
+			})
 		}
 		out = append(out, s)
 	}

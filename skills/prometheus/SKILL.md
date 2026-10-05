@@ -1,6 +1,6 @@
 ---
 name: prometheus
-version: 0.1.2
+version: 0.1.3
 description: "Query Prometheus and Prometheus-compatible backends (Thanos, Cortex/Mimir, VictoriaMetrics) from the command line: PromQL instant and range queries, metric/label/series discovery, metric metadata, scrape targets, recording and alerting rules, active alerts, Alertmanagers, and server config/flags/TSDB status. Use for PromQL questions, metric or alert investigations, Prometheus URLs, 'is it up', error rates, latency percentiles, saturation, which targets are down, why a metric is missing, or which rules are failing. JSON output and structured errors support agent workflows. Reuse existing host configuration; setup is prometheus-cli config init or PROMETHEUS_URL (plus PROMETHEUS_TOKEN only where a gateway requires it). Inspection is read-only; the TSDB admin writes need --allow-writes and --yes."
 metadata:
   requires:
@@ -153,7 +153,7 @@ it from stdin, which avoids shell-quoting a long PromQL expression.
 
 ## Agent-facing conventions
 
-- **Skill handshake — set `PROMETHEUS_CLI_SKILL=0.1.2`.** Once you have loaded
+- **Skill handshake — set `PROMETHEUS_CLI_SKILL=0.1.3`.** Once you have loaded
   this Skill, export that exact value in the environment used to run the CLI.
   The CLI compares it with the embedded Skill version and emits a structured
   stderr notice when the Skill is missing, old, or uses the legacy unversioned
@@ -170,12 +170,17 @@ it from stdin, which avoids shell-quoting a long PromQL expression.
 - stdout is data only; diagnostics, notices and errors go to stderr. A range
   query's server warnings travel with the result in JSON, and are re-emitted as
   a `query_advisories` notice on stderr under `--format ndjson`.
+- Non-query warnings and infos appear as `_notice.api_advisories` on stderr in
+  every format. A truncation warning means discovery is incomplete even when
+  `has_more` is false: narrow the selector or increase the limit before claiming
+  coverage. Limits must be nonnegative; explicit query timeouts must be positive.
 - Exit codes are stable and categorized (0 ok, 2 usage, 3 config, 4 auth,
   5 permission, 6 not found, …); see
   [errors-and-exit-codes.md](references/errors-and-exit-codes.md).
 - Lists come back as `{ "items": [...], "has_more": false }`. `rule list` pages
   by group: pass `--group-limit N` and resume with the returned `next` as
-  `--cursor`.
+  `--cursor`. In NDJSON, read `next` and `has_more` from the stderr
+  `_notice.pagination` record, including when a filtered page contains no rows.
 - `--fields a,b.c` projects output to just those dot-paths to save tokens. For a
   query result, project with `--format ndjson` so the paths apply to each series.
 - `--format ndjson` streams one series (or one item) per line.

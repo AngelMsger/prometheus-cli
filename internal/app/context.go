@@ -106,6 +106,7 @@ func (s *appState) newClient() (apiclient.Client, error) {
 		Decorators:    extra,
 		Timeout:       cfg.Defaults.Timeout,
 		MaxRetries:    cfg.Defaults.MaxRetries,
+		OnAdvisory:    emitAPIAdvisory,
 	})
 	if err != nil {
 		return nil, err
@@ -114,6 +115,21 @@ func (s *appState) newClient() (apiclient.Client, error) {
 		client = apiclient.NewReadOnly(client)
 	}
 	return client, nil
+}
+
+// emitAPIAdvisory keeps non-query envelope metadata visible in every format.
+// Queries already carry advisories in JSON or emit query_advisories in NDJSON.
+func emitAPIAdvisory(advisory apiclient.Advisory) {
+	if advisory.Endpoint == "/api/v1/query" || advisory.Endpoint == "/api/v1/query_range" {
+		return
+	}
+	output.EmitNotice(os.Stderr, map[string]any{"_notice": map[string]any{
+		"api_advisories": advisory,
+		"next_steps": []string{
+			"Read the server advisories before treating this result as complete.",
+			"For a truncated discovery result, narrow --match or increase --limit and retry.",
+		},
+	}})
 }
 
 // verboseDecorator logs each outgoing request line to stderr.

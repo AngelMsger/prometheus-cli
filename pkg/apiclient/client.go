@@ -84,21 +84,26 @@ type Client interface {
 
 // apiClient is the single Client implementation.
 type apiClient struct {
-	baseURL string // server root, no trailing slash
-	http    *transport.Client
+	baseURL    string // server root, no trailing slash
+	http       *transport.Client
+	onAdvisory func(Advisory)
 }
 
 // Config configures a Client.
 type Config struct {
 	BaseURL   string
 	Transport *transport.Client
+	// OnAdvisory receives successful response warnings and infos synchronously.
+	// Callers sharing a client concurrently must make the callback thread-safe.
+	OnAdvisory func(Advisory)
 }
 
 // New builds a Client. The transport must already carry the auth decorator.
 func New(cfg Config) Client {
 	return &apiClient{
-		baseURL: strings.TrimRight(cfg.BaseURL, "/"),
-		http:    cfg.Transport,
+		baseURL:    strings.TrimRight(cfg.BaseURL, "/"),
+		http:       cfg.Transport,
+		onAdvisory: cfg.OnAdvisory,
 	}
 }
 
@@ -167,7 +172,11 @@ func (c *apiClient) do(ctx context.Context, req *http.Request, path string) (*en
 		if resp.StatusCode >= 400 {
 			return nil, c.httpError(resp.StatusCode, nil, raw, path)
 		}
-		return &envelope{Status: "success"}, nil
+		if resp.StatusCode == http.StatusNoContent && req.Method == http.MethodPost &&
+			(path == apiPath(pathDeleteSeries) || path == apiPath(pathCleanTombstones)) {
+			return &envelope{Status: "success"}, nil
+		}
+		return nil, notPrometheusError(req.URL.Redacted(), raw)
 	}
 
 	var env envelope
@@ -186,6 +195,13 @@ func (c *apiClient) do(ctx context.Context, req *http.Request, path string) (*en
 	// would turn a misconfigured URL into a confident wrong answer.
 	if env.Status != "success" {
 		return nil, notPrometheusError(req.URL.Redacted(), raw)
+	}
+	if c.onAdvisory != nil && (len(env.Warnings) > 0 || len(env.Infos) > 0) {
+		c.onAdvisory(Advisory{
+			Endpoint: path,
+			Warnings: append([]string(nil), env.Warnings...),
+			Infos:    append([]string(nil), env.Infos...),
+		})
 	}
 	return &env, nil
 }

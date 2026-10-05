@@ -21,6 +21,7 @@ type BuildParams struct {
 	Decorators []transport.Decorator
 	Timeout    time.Duration
 	MaxRetries int
+	OnAdvisory func(Advisory)
 }
 
 // BuildClient assembles a ready-to-use Client: it normalizes the base URL and
@@ -48,7 +49,7 @@ func BuildClient(p BuildParams) (Client, error) {
 		MaxRetries: p.MaxRetries,
 		Decorators: decorators,
 	})
-	return New(Config{BaseURL: base, Transport: tc}), nil
+	return New(Config{BaseURL: base, Transport: tc, OnAdvisory: p.OnAdvisory}), nil
 }
 
 // NormalizeBaseURL trims a trailing slash and supplies a scheme when the user

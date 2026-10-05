@@ -75,6 +75,10 @@ fi
   `--from`/`--to`, ordered and non-empty.
 - **`BAD_STEP` (usage/2)** — `--step` must be a positive duration (`30s`, `5m`)
   or a bare number of seconds. Omit it to let the CLI derive one.
+- **`BAD_LIMIT` (usage/2)** — limits must be nonnegative. Use a positive bound,
+  or 0 to select the endpoint's documented default or unlimited behavior.
+- **`BAD_QUERY_TIMEOUT` (usage/2)** — an explicit `--query-timeout` must be a
+  positive duration. Omit it to use the server default.
 - **`CONFIRMATION_REQUIRED` (usage/2)** — a destructive admin write needs
   `--yes`. Preview with `--dry-run` first.
 - **`AUTH_NOT_REQUIRED` (usage/2)** — `auth login` on a `none` context. A plain
@@ -97,6 +101,7 @@ fi
 - **`NOT_PROMETHEUS_API` (parse/10)** — a 200 response without the Prometheus
   envelope: `--base-url` points at something else (a dashboard, a login page, a
   catch-all proxy route). It must be the server root, not `/api/v1` and not a
-  Grafana URL.
+  Grafana URL. Empty 200 responses and unexpected read/snapshot 204 responses
+  fail the same way; they are not valid empty query results.
 - **`UNKNOWN_STATUS_TOPIC` (usage/2)** — the topic list is in
   `status --help`; older servers lack `notifications`.

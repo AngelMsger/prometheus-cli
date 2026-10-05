@@ -17,6 +17,9 @@ import (
 // can filter and report on rules directly — and still page by group through
 // the server's own group cursor.
 func (c *apiClient) Rules(ctx context.Context, req RulesRequest) (*RulesPage, error) {
+	if err := validateLimit("group-limit", req.GroupLimit); err != nil {
+		return nil, err
+	}
 	query := url.Values{}
 	if req.Type != "" {
 		query.Set("type", req.Type)
