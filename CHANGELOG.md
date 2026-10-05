@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **NDJSON continuation notices.** With `--format ndjson`, a `rule list` page
+  that has more now prints one compact line on stderr after its rows:
+  `{"_notice":{"pagination":{"next":…,"has_more":true},"next_steps":[…]}}`.
+  Pass `next` as `--cursor`. The notice is kept for a filtered page with no
+  rows and under `--fields`; stdout stays item-only, JSON and table output are
+  unchanged, and completed or unpaginated results print none. The renderer is
+  the one the maintained CLI family shares: continuation guidance names the
+  command's actual cursor or offset flag and never follows a failed row write.
+  Previously an NDJSON page gave no sign that more rule groups existed.
+- **Discovery advisories.** Server warnings and info annotations on non-query
+  endpoints — a truncated `series list`, `labels list` or `labels values` among
+  them — are preserved as a structured `_notice.api_advisories` record on
+  stderr in every format, with `next_steps`. `has_more: false` means no cursor
+  page follows, not that a discovery limit returned every match.
+- **`pkg/apiclient`: `OnAdvisory`.** `Config.OnAdvisory` and
+  `BuildParams.OnAdvisory` are optional callbacks that receive an `Advisory`
+  (endpoint path, warnings, infos) for each successful response, so library
+  consumers can read the same metadata without any change to the existing
+  client method signatures.
+
 ### Changed
 
 - **Time-window flags follow the family contract.** `--since` is now mutually
@@ -24,25 +46,23 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
-- Preserve discovery truncation warnings and info annotations in structured
-  stderr notices; expose an optional `OnAdvisory` callback to library consumers
-  without changing existing client method signatures.
 - Reject empty HTTP 200 responses and unexpected 204 responses as
   `NOT_PROMETHEUS_API`; retain valid bodyless delete and cleanup responses.
-- Reject negative limits and nonpositive explicit query timeouts before sending
-  requests instead of silently dropping those bounds.
-- Preserve NDJSON pagination cursors in stderr notices, even for empty pages.
-- Align the pagination renderer across the maintained CLI family; continuation
-  guidance uses the command's actual cursor or offset flag and never follows a
-  failed row write.
+- Reject negative limits (`BAD_LIMIT`) and nonpositive explicit query timeouts
+  (`BAD_QUERY_TIMEOUT`) before sending requests instead of silently dropping
+  those bounds.
 - Merge float and native-histogram samples chronologically, and preserve the
   `value` field for empty string samples without adding it to histogram samples.
 - Keep a query's server warnings and infos visible under `--fields`: a
   projected JSON or table result now re-emits them as the `query_advisories`
   stderr notice, as `--format ndjson` already did. The notice gains `next_steps`
   naming the narrower-query and `--limit` recovery path.
-- Update the companion Skill to 0.1.3 with discovery completeness, pagination and
-  bounds guidance; add process-level regression coverage for response integrity.
+
+### Skill
+
+- Update the companion Skill to 0.1.3 with discovery completeness, pagination,
+  bounds and time-window guidance, and list `auth reuse` in its `## Commands`
+  block; add process-level regression coverage for response integrity.
 
 ### Documentation
 
@@ -50,8 +70,7 @@ All notable changes to this project are documented here. The format follows
   from the landing-page footer, including `wecom-calendar-cli`.
 - Correct the landing page's install card: `skill install` detects thirteen
   agent locations (Claude Code, Codex, Cursor and ten more), not two.
-- List `auth reuse` in the README command table and the Skill's `## Commands`
-  block.
+- List `auth reuse` in the README command table.
 
 ## [0.2.0] - 2026-09-24
 ### Added

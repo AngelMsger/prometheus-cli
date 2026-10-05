@@ -179,10 +179,12 @@ result, combine the two — each ndjson line is a series.
 NDJSON listings preserve continuation metadata in a structured
 `_notice.pagination` record on stderr; pass its `next` as `--cursor`.
 Non-query API warnings and infos, including truncated discovery results, appear
-in `_notice.api_advisories` on stderr in every format. Read these notices before
-treating a result as complete: `has_more: false` means no cursor page follows,
-not that a discovery limit returned every match. Narrow `--match` or increase
-`--limit` when the server reports truncation.
+in `_notice.api_advisories` on stderr in every format. A query's own warnings
+stay in its result document and are repeated as `_notice.query_advisories`
+whenever `--format ndjson` or `--fields` would drop them. Read these notices
+before treating a result as complete: `has_more: false` means no cursor page
+follows, not that a discovery limit returned every match. Narrow `--match` or
+increase `--limit` when the server reports truncation.
 
 Limits must be nonnegative; an explicit `--query-timeout` must be positive.
 Invalid bounds return usage errors before sending a request.

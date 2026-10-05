@@ -261,8 +261,12 @@ the emitted document, so for a query result use it together with
 ## Testing
 
 `cli_regression_test.go` builds the executable and verifies real stdout/stderr,
-exit status, discovery advisories, cursor continuation, empty responses and
+exit status, discovery and query advisories, cursor continuation, empty
+responses, ambiguous time windows on every command that takes one, and
 pre-request validation against isolated synthetic HTTP fixtures.
+`internal/app/config_credentials_test.go` drives the real `config init` line
+wizard against a mocked keyring to pin that a context edit never costs a stored
+credential.
 
 - `go test ./...` — unit tests, including the normalization, error
   classification, step derivation and credential contracts, plus
