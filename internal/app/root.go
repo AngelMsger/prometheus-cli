@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/angelmsger/prometheus-cli/internal/cliflags"
+	"github.com/angelmsger/agent-cli-kit/cliflags"
+	"github.com/angelmsger/agent-cli-kit/output"
 	"github.com/angelmsger/prometheus-cli/internal/config"
-	"github.com/angelmsger/prometheus-cli/internal/output"
 	"github.com/angelmsger/prometheus-cli/pkg/constants"
 	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
 	"github.com/spf13/cobra"
