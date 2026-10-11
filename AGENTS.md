@@ -38,9 +38,11 @@ architecture of the sibling `openobserve-cli` / `jenkins-cli` / `confluence-cli`
   prometheus-cli's User-Agent.
 - `pkg/timeutil` — human time expressions → Prometheus instants, and the step
   derivation that keeps a range query inside the server's point ceiling.
-- `internal/config`, `internal/auth` — layered loader + keychain resolution.
-- Output rendering, argv correction, the update check and the credential store
-  come from [agent-cli-kit](https://github.com/AngelMsger/agent-cli-kit), shared
+- `internal/config` — layered loader and named contexts.
+- `internal/auth` — declares prometheus-cli's auth schemes and recovery wording,
+  adds the tenant header, and maps config onto the shared resolver.
+- Output rendering, argv correction, the update check, the credential store and
+  credential resolution come from [agent-cli-kit](https://github.com/AngelMsger/agent-cli-kit), shared
   by every CLI in the family. Fix bugs in those there, not here.
 - `skills/prometheus` — the companion Skill, embedded into the binary.
 

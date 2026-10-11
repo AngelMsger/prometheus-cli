@@ -19,17 +19,18 @@ pkg/errors            the shared CLIError model, plus prometheus-cli's hints
 pkg/timeutil          human time expressions ⇄ Prometheus instants; step derivation
 pkg/constants         app name, defaults, build-time version vars
 internal/config       layered configuration + named contexts
-internal/auth         credential model; secrets live in the shared credstore
+internal/auth         prometheus-cli's auth schemes and tenant on top of the shared resolver
 skills/prometheus     the companion Skill, embedded into the binary
 test/mockserver       a stand-in Prometheus API for the e2e suite
 ```
 
 `output` (JSON / table / ndjson rendering, `{items,next,has_more}`), `cliflags`
 (argv normalization), `update` (the passive "a newer release exists" check),
-the credential store, and the code behind `pkg/errors` and `pkg/transport` come
-from [agent-cli-kit](https://github.com/AngelMsger/agent-cli-kit), shared by
-every CLI in the family; prometheus-cli supplies its own hints, User-Agent,
-keychain service name and release repository. `pkg/errors` and `pkg/transport`
+the credential store, credential resolution, and the code behind `pkg/errors`
+and `pkg/transport` come from
+[agent-cli-kit](https://github.com/AngelMsger/agent-cli-kit), shared by every
+CLI in the family; prometheus-cli supplies its own hints, User-Agent, keychain
+service name, auth schemes and release repository. `pkg/errors` and `pkg/transport`
 stay as re-exports under their existing names: `pkg/errors` installs
 `hints.go` with `SetGuidance` when the package loads, and `pkg/transport.New`
 defaults the User-Agent to `prometheus-cli/<version>`.
@@ -191,9 +192,12 @@ scheme is `none`**: no credential is resolved, nothing is read from the
 keychain, and `PROMETHEUS_URL` alone is a complete configuration.
 
 `basic` and `bearer` cover the deployments that do authenticate (a reverse
-proxy, an ingress, a hosted vendor, a Kubernetes service account). A `none`
-credential is still a `Credential` and still produces a decorator, because it
-carries the other piece of request identity:
+proxy, an ingress, a hosted vendor, a Kubernetes service account).
+`internal/auth` registers the three schemes with agent-cli-kit's `auth`
+package, which owns the validation, the header encoding, the keychain lookup
+and the recovery errors; its own `Credential` wraps the kit's and adds the
+tenant. A `none` credential is still a `Credential` and still produces a
+decorator, because it carries the other piece of request identity:
 
 `auth.Credential.TenantID` is sent as `X-Scope-OrgID` for Cortex, Mimir and
 Thanos Receive. It is not a secret, and it is not personal — every member of a
@@ -204,9 +208,10 @@ result*, not an error: a missing tenant is a silent wrong answer.
 
 `AccountKey` includes the URL path, so one gateway host fronting several
 path-routed deployments does not collapse their secrets into one keychain entry.
-The key is built here, in `internal/auth`; the secret itself is kept by
-agent-cli-kit's `credstore` under the `prometheus-cli` keychain service, with
-its file fallback in the config directory.
+`internal/auth` turns this on when it registers with agent-cli-kit's `auth`
+package (`AccountKeyIncludesPath`); the secret itself is kept by agent-cli-kit's
+`credstore` under the `prometheus-cli` keychain service, with its file fallback
+in the config directory.
 
 Verification (`auth login`, `doctor`) reads `status/buildinfo`. Prometheus
 exposes no identity endpoint, so there is no authenticated user to assert; a

@@ -34,21 +34,48 @@ func TestResolveCredentialRecovery(t *testing.T) {
 		name string
 		err  error
 		code string
+		msg  string
+		last string
 	}{
-		{"missing", keyring.ErrNotFound, "CREDENTIAL_NOT_VISIBLE_OR_MISSING"},
-		{"inaccessible", errors.New("sandbox denied keychain"), "CREDENTIAL_STORE_INACCESSIBLE"},
+		{"missing", keyring.ErrNotFound, "CREDENTIAL_NOT_VISIBLE_OR_MISSING",
+			"stored Prometheus credentials are missing or not visible in this execution environment",
+			"Only if the host retry also reports missing credentials, run `prometheus-cli config init` in the user's terminal or set PROMETHEUS_* environment variables."},
+		{"inaccessible", errors.New("sandbox denied keychain"), "CREDENTIAL_STORE_INACCESSIBLE",
+			"stored Prometheus credentials cannot be read in this execution environment",
+			"Do not run `config init` unless the same check also fails in the host environment."},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			s := newStoreWithKeyring(t.TempDir(), failingKeyring{err: tc.err})
 			_, err := Resolve(cfg, config.Secrets{}, s)
 			ce := cerrors.AsCLIError(err)
-			if ce == nil || ce.Code != tc.code {
-				t.Fatalf("Resolve() error = %+v, want code %s", ce, tc.code)
+			if ce == nil || ce.Code != tc.code || ce.Message != tc.msg {
+				t.Fatalf("Resolve() error = %+v, want %s %q", ce, tc.code, tc.msg)
 			}
 			if ce.Recovery == nil || ce.Recovery.Scope != "host" || ce.Retryable {
 				t.Fatalf("Resolve() recovery = %+v retryable=%v, want host and false", ce.Recovery, ce.Retryable)
 			}
+			if len(ce.NextSteps) < 3 || ce.NextSteps[1] != "prometheus-cli doctor" || ce.NextSteps[2] != tc.last {
+				t.Fatalf("Resolve() next steps = %q", ce.NextSteps)
+			}
 		})
+	}
+}
+
+// With no scheme configured, prometheus-cli resolves `none` without touching
+// the keychain, and the tenant still reaches the credential.
+func TestResolveDefaultsToNoneAndCarriesTheTenant(t *testing.T) {
+	t.Parallel()
+	s := newStoreWithKeyring(t.TempDir(), failingKeyring{err: errors.New("must not be read")})
+	cfg := config.Config{BaseURL: "https://prometheus.example.com", Auth: config.AuthConfig{TenantID: "team-a"}}
+	cred, err := Resolve(cfg, config.Secrets{}, s)
+	if err != nil || cred != (Credential{Scheme: SchemeNone, TenantID: "team-a"}) {
+		t.Fatalf("Resolve() = %+v, %v", cred, err)
+	}
+
+	cfg.Auth.Scheme = SchemeBearer
+	cred, err = Resolve(cfg, config.Secrets{Token: "tok"}, s)
+	if err != nil || cred != (Credential{Scheme: SchemeBearer, Secret: "tok", TenantID: "team-a"}) {
+		t.Fatalf("Resolve(bearer) = %+v, %v", cred, err)
 	}
 }
