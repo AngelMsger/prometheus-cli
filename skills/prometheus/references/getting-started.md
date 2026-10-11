@@ -37,7 +37,13 @@ For the default `none` scheme it asks only for the URL. It writes a context to
 (falling back to per-user DPAPI on Windows or a `0600` file on macOS/Linux) and
 never into the config file. When a config already exists, re-running it lists
 the contexts and asks whether to **edit** one (prefilled), **add** a new one, or
-**replace** everything; `config init --context prod` skips that prompt.
+**replace** everything; `config init --context prod` skips that prompt. A new
+context name is saved trimmed and in lower case (`--context Prod` writes `prod`).
+
+`config get-contexts` lists the contexts with the current one marked.
+`config delete-context <name>` removes a context; its stored secret goes too
+unless another context on the same server URL and scheme still uses it. The
+only context cannot be deleted (`LAST_CONTEXT`).
 
 `--pretty` renders an interactive TUI and requires a terminal (otherwise it
 fails with `PRETTY_NEEDS_TTY`); the plain wizard reads stdin line by line, so it
@@ -111,6 +117,6 @@ personal login; see [team setup](team-setup.md).
 an existing context with the same complete service URL, scheme and provider scope.
 Apply without `--dry-run`, then verify with `auth status`. No login, token copy,
 current-context switch or replacement of a populated identity occurs. A different
-verified source can be selected with `--from-context` after `config contexts`.
+verified source can be selected with `--from-context` after `config get-contexts`.
 `AUTH_REUSE_AMBIGUOUS` requires choosing an identity; store/network/permission
 errors require their named recovery, not automatic reauthentication.

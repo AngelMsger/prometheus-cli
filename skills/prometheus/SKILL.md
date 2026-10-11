@@ -1,6 +1,6 @@
 ---
 name: prometheus
-version: 0.1.3
+version: 0.1.4
 description: "Query Prometheus and Prometheus-compatible backends (Thanos, Cortex/Mimir, VictoriaMetrics) from the command line: PromQL instant and range queries, metric/label/series discovery, metric metadata, scrape targets, recording and alerting rules, active alerts, Alertmanagers, and server config/flags/TSDB status. Use for PromQL questions, metric or alert investigations, Prometheus URLs, 'is it up', error rates, latency percentiles, saturation, which targets are down, why a metric is missing, or which rules are failing. JSON output and structured errors support agent workflows. Reuse existing host configuration; setup is prometheus-cli config init or PROMETHEUS_URL (plus PROMETHEUS_TOKEN only where a gateway requires it). Inspection is read-only; the TSDB admin writes need --allow-writes and --yes."
 metadata:
   requires:
@@ -144,7 +144,8 @@ prometheus-cli admin delete-series --match '<selector>' --dry-run               
 prometheus-cli admin clean-tombstones --yes                                      # destructive write
 prometheus-cli admin snapshot [--skip-head]                                      # write
 prometheus-cli config init|show                                                  # configuration
-prometheus-cli config contexts|use-context <name>                                # named server contexts
+prometheus-cli config get-contexts|use-context <name>                            # named server contexts
+prometheus-cli config delete-context <name>                                      # remove a context and its unused secret
 prometheus-cli auth status|guide                                                 # reachability / credential guidance
 prometheus-cli auth reuse [--from-context <name>] [--dry-run]                    # associate an existing login
 prometheus-cli doctor                                                            # diagnose config / creds / connectivity
@@ -156,7 +157,7 @@ it from stdin, which avoids shell-quoting a long PromQL expression.
 
 ## Agent-facing conventions
 
-- **Skill handshake — set `PROMETHEUS_CLI_SKILL=0.1.3`.** Once you have loaded
+- **Skill handshake — set `PROMETHEUS_CLI_SKILL=0.1.4`.** Once you have loaded
   this Skill, export that exact value in the environment used to run the CLI.
   The CLI compares it with the embedded Skill version and emits a structured
   stderr notice when the Skill is missing, old, or uses the legacy unversioned

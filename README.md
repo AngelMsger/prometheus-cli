@@ -142,7 +142,7 @@ tree and published at <https://angelmsger.github.io/prometheus-cli/cli/>.
 | `alert list` / `alert managers` | active alerts / the Alertmanagers they go to |
 | `status config\|flags\|runtimeinfo\|buildinfo\|tsdb\|wal-replay\|notifications` | server state |
 | `admin delete-series\|clean-tombstones\|snapshot` | TSDB writes (gated; see below) |
-| `config init\|show\|contexts\|use-context\|set-context` | configuration and named contexts |
+| `config init\|show\|get-contexts\|use-context\|set-context\|delete-context` | configuration and named contexts |
 | `auth status\|guide\|login\|reuse\|logout` | reachability, credential guidance and login reuse |
 | `doctor` | diagnose config, credentials, connectivity and the Skill |
 | `skill install\|status\|path\|show\|uninstall` | manage the companion Skill |

@@ -130,8 +130,8 @@ func TestWording(t *testing.T) {
 	ce := cerrors.AsCLIError(err)
 	if ce == nil || ce.Code != "UNKNOWN_CONTEXT" ||
 		ce.Message != `context "ghost" (from --use-context) is not defined in the config file` ||
-		ce.Hint != "Run `prometheus-cli config contexts` to list defined contexts." ||
-		!reflect.DeepEqual(ce.NextSteps, []string{"prometheus-cli config contexts"}) {
+		ce.Hint != "Run `prometheus-cli config get-contexts` to list defined contexts." ||
+		!reflect.DeepEqual(ce.NextSteps, []string{"prometheus-cli config get-contexts"}) {
 		t.Errorf("UNKNOWN_CONTEXT = %+v", ce)
 	}
 	if hint := UnknownContextHint("ghost", []string{"alpha", "beta"}); hint != "Available contexts: alpha, beta." {

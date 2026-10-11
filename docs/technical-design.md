@@ -211,7 +211,11 @@ path-routed deployments does not collapse their secrets into one keychain entry.
 `internal/auth` turns this on when it registers with agent-cli-kit's `auth`
 package (`AccountKeyIncludesPath`); the secret itself is kept by agent-cli-kit's
 `credstore` under the `prometheus-cli` keychain service, with its file fallback
-in the config directory.
+in the config directory. `config init` saves under the normalized URL and never
+deletes an entry. `auth logout` removes the shared entry for the active
+context's deployment and scheme. `config delete-context` removes the deleted
+context's entry only when no remaining context resolves the same account key,
+only after the config file is written, and not at all for a `none` context.
 
 Verification (`auth login`, `doctor`) reads `status/buildinfo`. Prometheus
 exposes no identity endpoint, so there is no authenticated user to assert; a
@@ -248,7 +252,7 @@ Every identifier a command accepts is discoverable from another command:
 | rule group, rule file, rule name | `rule list` |
 | alert name | `rule list --type alert`, `alert list` |
 | status topic | `status --help` (each topic is its own subcommand) |
-| context name | `config contexts` |
+| context name | `config get-contexts` |
 
 Where a command cannot list its own inputs, its error `next_steps` names the one
 that can.
@@ -288,8 +292,9 @@ exit status, discovery and query advisories, cursor continuation, empty
 responses, ambiguous time windows on every command that takes one, and
 pre-request validation against isolated synthetic HTTP fixtures.
 `internal/app/config_credentials_test.go` drives the real `config init` line
-wizard against a mocked keyring to pin that a context edit never costs a stored
-credential.
+wizard and `config delete-context` against a mocked keyring to pin that a
+context edit never costs a stored credential and a delete keeps any secret
+another context still resolves.
 
 - `go test ./...` — unit tests, including the normalization, error
   classification, step derivation and credential contracts, plus

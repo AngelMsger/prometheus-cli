@@ -44,7 +44,7 @@ func init() {
 			ContextFlag:  "--use-context",
 			ContextEnv:   "PROMETHEUS_CONTEXT",
 			NoHintEnv:    EnvNoContextHint,
-			ListContexts: "config contexts",
+			ListContexts: "config get-contexts",
 			UseContext:   "config use-context",
 			SetContext:   "config set-context",
 			AuthGuide:    "auth guide",

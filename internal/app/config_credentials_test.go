@@ -1,10 +1,12 @@
 package app
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -20,11 +22,11 @@ import (
 // wizard across a spelling difference deleted the secret it had just saved,
 // and removing one context deleted the secret another still resolved.
 //
-// This CLI has no `config delete-context`, and `config init` never removes a
-// secret: the only deletion is an explicit `auth logout`. These tests pin that
-// for the one command that rewrites a context, so a future orphan cleanup has
-// to keep both guarantees (port forgetUnusedCredential from the sibling, which
-// compares account keys rather than URLs).
+// `config init` never removes a secret. `config delete-context` removes the
+// deleted context's secret only when no remaining context resolves the same
+// account key (host, path and scheme), and only after the config write;
+// otherwise only an explicit `auth logout` deletes one. These tests pin both
+// guarantees for the commands that rewrite or remove a context.
 
 // gatewayForTest stands in for a Prometheus behind a bearer-checking gateway.
 func gatewayForTest(t *testing.T, token string) *httptest.Server {
@@ -166,5 +168,115 @@ func TestConfigInitKeepsACredentialAnotherContextStillUses(t *testing.T) {
 	after, _, err := config.ReadFile(cfgDir)
 	if err != nil || len(after.Contexts) != 2 {
 		t.Fatalf("unexpected contexts: %+v (%v)", after, err)
+	}
+}
+
+// storedSecret reads the secret stored for a server and scheme.
+func storedSecret(t *testing.T, cfgDir, server, scheme string) (string, error) {
+	t.Helper()
+	return auth.NewStore(cfgDir).Load(auth.AccountKey(server, scheme))
+}
+
+func saveSecret(t *testing.T, cfgDir, server, scheme, secret string) {
+	t.Helper()
+	if _, err := auth.Save(server, auth.Credential{Scheme: scheme, Username: "alice", Secret: secret}, auth.NewStore(cfgDir)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Deleting a context removes its secret only when no remaining context
+// resolves the same account. Keys include the URL path, so another spelling
+// of the same deployment keeps the secret, while a deployment under another
+// path on the same host does not.
+func TestDeleteContextKeepsACredentialAnotherContextUses(t *testing.T) {
+	cfgDir := isolateConfigCommands(t)
+	const prom, other = "https://gw.example.test/prom", "https://gw.example.test/other"
+	writeContexts(t, cfgDir, "default",
+		bearerContext("default", prom+"/"),
+		bearerContext("team", prom),
+		bearerContext("elsewhere", other))
+	saveSecret(t, cfgDir, prom+"/", auth.SchemeBearer, "shared-token")
+	saveSecret(t, cfgDir, other, auth.SchemeBearer, "other-token")
+
+	if _, err := runConfig(t, cfgDir, "config", "delete-context", "team"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := storedSecret(t, cfgDir, prom, auth.SchemeBearer); err != nil || got != "shared-token" {
+		t.Fatalf("deleting the preset removed the personal context's credential: %q %v", got, err)
+	}
+	if _, err := runConfig(t, cfgDir, "config", "delete-context", "elsewhere"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := storedSecret(t, cfgDir, other, auth.SchemeBearer); !errors.Is(err, auth.ErrSecretNotFound) {
+		t.Fatalf("a context on the same host kept another path's credential alive: %q %v", got, err)
+	}
+	if got, err := storedSecret(t, cfgDir, prom, auth.SchemeBearer); err != nil || got != "shared-token" {
+		t.Fatalf("deleting another path's context removed this one's credential: %q %v", got, err)
+	}
+	if file, _, _ := config.ReadFile(cfgDir); len(file.Contexts) != 1 || file.Contexts[0].Name != "default" {
+		t.Fatalf("unexpected contexts: %+v", file)
+	}
+}
+
+// A context on the same deployment under another scheme keeps its own secret
+// and does not keep the deleted context's secret alive. A preset with no
+// scheme of its own resolves to `none`, which uses no secret at all.
+func TestDeleteContextScopesTheSharedCredentialByScheme(t *testing.T) {
+	cfgDir := isolateConfigCommands(t)
+	const prom = "https://gw.example.test/prom"
+	basic := config.NamedContext{Name: "basic", BaseURL: prom, Auth: config.AuthConfig{Scheme: config.SchemeBasic, Username: "alice"}}
+	writeContexts(t, cfgDir, "basic", basic, bearerContext("bearer", prom), config.NamedContext{Name: "preset", BaseURL: prom})
+	saveSecret(t, cfgDir, prom, auth.SchemeBearer, "the-token")
+	saveSecret(t, cfgDir, prom, auth.SchemeBasic, "the-password")
+
+	if _, err := runConfig(t, cfgDir, "config", "delete-context", "bearer"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := storedSecret(t, cfgDir, prom, auth.SchemeBearer); !errors.Is(err, auth.ErrSecretNotFound) {
+		t.Fatalf("the deleted context's secret was left behind: %q %v", got, err)
+	}
+	if got, err := storedSecret(t, cfgDir, prom, auth.SchemeBasic); err != nil || got != "the-password" {
+		t.Fatalf("a secret under the other scheme was deleted: %q %v", got, err)
+	}
+}
+
+// A `none` context never stored a secret, so deleting one leaves the store
+// alone, even an entry that happens to sit under its key.
+func TestDeleteContextLeavesTheStoreAloneForNone(t *testing.T) {
+	cfgDir := isolateConfigCommands(t)
+	const prom = "https://gw.example.test/prom"
+	writeContexts(t, cfgDir, "plain", config.NamedContext{Name: "plain", BaseURL: prom}, bearerContext("other", "https://o.example.test"))
+	store := auth.NewStore(cfgDir)
+	if _, err := store.Save(auth.AccountKey(prom, auth.SchemeNone), "planted"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runConfig(t, cfgDir, "config", "delete-context", "plain"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := store.Load(auth.AccountKey(prom, auth.SchemeNone)); err != nil || got != "planted" {
+		t.Fatalf("deleting a none context touched the store: %q %v", got, err)
+	}
+}
+
+// A failed config write must not cost the credential: the context is still in
+// the file and still resolves it.
+func TestDeleteContextKeepsTheCredentialWhenTheConfigWriteFails(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("a read-only directory does not block file creation for this user")
+	}
+	cfgDir := isolateConfigCommands(t)
+	writeContexts(t, cfgDir, "default", bearerContext("default", "https://gw.example.test/prom"), bearerContext("target", "https://target.example.test"))
+	saveSecret(t, cfgDir, "https://target.example.test", auth.SchemeBearer, "target-token")
+	// The config is replaced through a temporary file in the same directory,
+	// so a read-only directory fails the write while the read still succeeds.
+	if err := os.Chmod(cfgDir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(cfgDir, 0o700) })
+	if _, err := runConfig(t, cfgDir, "config", "delete-context", "target"); err == nil {
+		t.Fatal("a failed config write was reported as success")
+	}
+	if got, err := storedSecret(t, cfgDir, "https://target.example.test", auth.SchemeBearer); err != nil || got != "target-token" {
+		t.Fatalf("a failed delete removed a credential the context still names: %q %v", got, err)
 	}
 }

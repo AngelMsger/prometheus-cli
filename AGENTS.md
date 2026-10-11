@@ -110,7 +110,7 @@ enforced by tests; read the reason before altering them.
 another command in this CLI.** A metric name → `metadata list` or
 `labels values __name__`. A label value → `labels values <label>`. A selector →
 `series list`. A rule group or file → `rule list`. A scrape pool → `target list`.
-A context → `config contexts`. When you add a command or flag that takes a new
+A context → `config get-contexts`. When you add a command or flag that takes a new
 kind of input, also provide (or point its error `next_steps` at) the command
 that lists values of that kind.
 
@@ -148,13 +148,15 @@ flow. The canonical behavior is in the installation guide's team setup section.
 
 A stored secret is keyed by the server's host, path and scheme
 (`auth.AccountKey`), so every context on one deployment shares it — a team
-preset beside a personal context, or two spellings of the same URL. Nothing but
-an explicit `auth logout` deletes one: `config init` saves and never cleans up,
-and there is no `config delete-context`. Keep it that way unless a cleanup is
-really needed; if one is added, compare account keys rather than URL strings and
-keep any secret a remaining context still resolves, as the sibling
-`wecom-calendar-cli` does in `forgetUnusedCredential`. `config_credentials_test.go`
-drives the real wizard to pin both guarantees.
+preset beside a personal context, or two spellings of the same URL. `config
+init` saves and never cleans up; `config delete-context` and `auth logout` are
+the paths that remove one. `delete-context` forgets a secret only when no
+remaining context resolves the same account key (`forgetUnusedCredential`,
+ported from the Atlassian CLIs; it compares account keys, path included, never
+URL strings), only after the config write, and never for a `none` context,
+which stored nothing. `config_credentials_test.go` drives the real wizard and
+`delete-context` to pin that an edit or a delete keeps every secret another
+context still resolves.
 
 ## Credential reuse
 
