@@ -32,17 +32,21 @@ internal/app          one file per noun (query, series, metadata, target, rule,
                       alert, status, admin, auth, config, doctor, skill) + root
                       wiring and the shared appState
 pkg/apiclient         the Prometheus HTTP API surface and normalized models
-pkg/transport         retrying HTTP client with request decorators
-pkg/errors            the CLIError model and exit-code map (0–11)
+pkg/transport         the shared HTTP client with prometheus-cli's User-Agent
+pkg/errors            the shared CLIError model, plus prometheus-cli's hints
 pkg/timeutil          human time expressions ⇄ Prometheus instants; step derivation
 pkg/constants         app name, defaults, build-time version vars
-internal/output       JSON / table / ndjson rendering, {items,next,has_more}
 internal/config       layered configuration + named contexts
-internal/auth         credential model + OS keychain storage
-internal/cliflags     argv normalization (LLM slip correction)
+internal/auth         credential model; secrets live in the shared credstore
 skills/prometheus     the companion Skill, embedded into the binary
 test/mockserver       a stand-in Prometheus API for the e2e suite
 ```
+
+Output rendering, argv normalization, the release check, the credential store,
+and the code behind `pkg/errors` and `pkg/transport` come from
+[agent-cli-kit](https://github.com/AngelMsger/agent-cli-kit), which every CLI in
+the family shares. A fix to one of those belongs there; this repo then bumps the
+version in `go.mod`.
 
 See [docs/technical-design.md](docs/technical-design.md) for how these fit
 together.
@@ -54,8 +58,9 @@ together.
   stderr; never print anything else to stdout.
 - **Structured errors.** Every user-facing failure is a `*errors.CLIError` with a
   `category`, a stable `code`, a `hint` and `next_steps`. The category maps to an
-  exit code in `pkg/errors/codes.go`. A caller's mistake (bad PromQL, a bad
-  selector) is a `usage` error, not a retryable one.
+  exit code in agent-cli-kit's `errors/codes.go`; prometheus-cli's hints live in
+  `pkg/errors/hints.go`. A caller's mistake (bad PromQL, a bad selector) is a
+  `usage` error, not a retryable one.
 - **Absorb the footguns.** Anything that would make a caller decode a positional
   tuple, convert an epoch, walk a nested document, or discover a server limit by
   hitting it belongs in `pkg/apiclient` or `pkg/timeutil`, not in the caller.

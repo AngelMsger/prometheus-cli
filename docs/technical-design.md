@@ -14,18 +14,25 @@ internal/app          one file per noun (query, series, metadata, target, rule,
                       alert, status, admin, auth, config, doctor, skill) plus
                       root wiring and the shared appState
 pkg/apiclient         the Prometheus HTTP API surface and normalized models
-pkg/transport         retrying HTTP client with request decorators
-pkg/errors            the CLIError model and exit-code map (0–11)
+pkg/transport         the shared HTTP client with prometheus-cli's User-Agent
+pkg/errors            the shared CLIError model, plus prometheus-cli's hints
 pkg/timeutil          human time expressions ⇄ Prometheus instants; step derivation
 pkg/constants         app name, defaults, build-time version vars
-internal/output       JSON / table / ndjson rendering, {items,next,has_more}
 internal/config       layered configuration + named contexts
-internal/auth         credential model + OS keychain storage
-internal/cliflags     argv normalization (LLM slip correction)
-internal/update       the passive "a newer release exists" check
+internal/auth         credential model; secrets live in the shared credstore
 skills/prometheus     the companion Skill, embedded into the binary
 test/mockserver       a stand-in Prometheus API for the e2e suite
 ```
+
+`output` (JSON / table / ndjson rendering, `{items,next,has_more}`), `cliflags`
+(argv normalization), `update` (the passive "a newer release exists" check),
+the credential store, and the code behind `pkg/errors` and `pkg/transport` come
+from [agent-cli-kit](https://github.com/AngelMsger/agent-cli-kit), shared by
+every CLI in the family; prometheus-cli supplies its own hints, User-Agent,
+keychain service name and release repository. `pkg/errors` and `pkg/transport`
+stay as re-exports under their existing names: `pkg/errors` installs
+`hints.go` with `SetGuidance` when the package loads, and `pkg/transport.New`
+defaults the User-Agent to `prometheus-cli/<version>`.
 
 `internal/app/root.go` assembles the command tree; `internal/app/context.go`
 holds `appState`, the per-invocation handle that every command captures.
@@ -197,6 +204,9 @@ result*, not an error: a missing tenant is a silent wrong answer.
 
 `AccountKey` includes the URL path, so one gateway host fronting several
 path-routed deployments does not collapse their secrets into one keychain entry.
+The key is built here, in `internal/auth`; the secret itself is kept by
+agent-cli-kit's `credstore` under the `prometheus-cli` keychain service, with
+its file fallback in the config directory.
 
 Verification (`auth login`, `doctor`) reads `status/buildinfo`. Prometheus
 exposes no identity endpoint, so there is no authenticated user to assert; a
@@ -230,9 +240,9 @@ Every identifier a command accepts is discoverable from another command:
 Where a command cannot list its own inputs, its error `next_steps` names the one
 that can.
 
-## Output
+## Output (agent-cli-kit `output`)
 
-`internal/output` renders JSON (default), a human table, or ndjson. Listings use
+`output` renders JSON (default), a human table, or ndjson. Listings use
 the family envelope `{items, next, has_more}`. A query result is a single
 document in JSON; under `--format ndjson` it streams one series per line and
 re-emits the server's `warnings` and `infos` as a `query_advisories` notice on
@@ -299,10 +309,12 @@ shape. Bitbucket, Confluence, Jira, Prometheus and WeCom Calendar resume with
 renderer but its current endpoints remain unpaginated and emit no continuation
 notice. In this CLI only `rule list` pages (by rule group); every other listing
 passes an empty page descriptor because its endpoint has no cursor, and
-`internal/output/pagination_test.go` is the family's shared renderer test.
+agent-cli-kit's `output` tests are the family's shared renderer tests.
 
 Prometheus-specific response normalization remains local: envelope advisories,
 empty-response validation, mixed float/histogram ordering and empty strings.
 OpenObserve intentionally exposes raw PromQL tuples; other siblings use their
-own REST response models. The family adds no shared runtime dependency, and the
-documented automatic range-step difference remains.
+own REST response models. The only shared runtime dependency is agent-cli-kit
+(rendering, argv correction, the error model, transport, the update check and
+the credential store), and the documented automatic range-step difference
+remains.

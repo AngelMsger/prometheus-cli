@@ -32,20 +32,26 @@ architecture of the sibling `openobserve-cli` / `jenkins-cli` / `confluence-cli`
   alert, status, admin, auth, config, doctor, skill); `root.go` assembles the
   tree; `context.go` holds the shared `appState`.
 - `pkg/apiclient` — the Prometheus HTTP surface and normalized models.
-- `pkg/errors` — the `CLIError` model + exit-code map (0–11).
+- `pkg/errors` — re-exports the shared `CLIError` model and exit-code map (0–11)
+  and installs prometheus-cli's hints (`hints.go`).
+- `pkg/transport` — re-exports the shared retrying HTTP client with
+  prometheus-cli's User-Agent.
 - `pkg/timeutil` — human time expressions → Prometheus instants, and the step
   derivation that keeps a range query inside the server's point ceiling.
-- `internal/output` — JSON / table / ndjson rendering, `{items,next,has_more}`.
 - `internal/config`, `internal/auth` — layered loader + keychain resolution.
+- Output rendering, argv correction, the update check and the credential store
+  come from [agent-cli-kit](https://github.com/AngelMsger/agent-cli-kit), shared
+  by every CLI in the family. Fix bugs in those there, not here.
 - `skills/prometheus` — the companion Skill, embedded into the binary.
 
 ## Ground rules
 
 - Run `make test` and `make build` before claiming a change is complete; run
   `make e2e` for anything touching a command, an output shape or a write gate.
-- Credential fallback tests assert `0600` only on non-Windows platforms.
-  Windows tests must verify DPAPI-encrypted on-disk data and a store round trip;
-  Windows `FileMode` does not represent POSIX access permissions.
+- Credential fallback tests (in agent-cli-kit's `credstore`) assert `0600` only
+  on non-Windows platforms. Windows tests must verify DPAPI-encrypted on-disk
+  data and a store round trip; Windows `FileMode` does not represent POSIX
+  access permissions.
 - stdout is data only; errors / notices / `--verbose` go to stderr.
 - Keep query and monitoring guidance in the companion Skill: discover before
   querying, bound every window, report the step alongside the numbers, and never

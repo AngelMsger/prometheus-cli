@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/angelmsger/prometheus-cli/internal/output"
+	"github.com/angelmsger/agent-cli-kit/output"
 
 	"github.com/angelmsger/prometheus-cli/pkg/apiclient"
 	"github.com/angelmsger/prometheus-cli/pkg/constants"
