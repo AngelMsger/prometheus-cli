@@ -18,7 +18,7 @@ pkg/transport         the shared HTTP client with prometheus-cli's User-Agent
 pkg/errors            the shared CLIError model, plus prometheus-cli's hints
 pkg/timeutil          human time expressions ⇄ Prometheus instants; step derivation
 pkg/constants         app name, defaults, build-time version vars
-internal/config       layered configuration + named contexts
+internal/config       prometheus-cli's settings and file shape on the shared engine
 internal/auth         prometheus-cli's auth schemes and tenant on top of the shared resolver
 skills/prometheus     the companion Skill, embedded into the binary
 test/mockserver       a stand-in Prometheus API for the e2e suite
@@ -26,11 +26,11 @@ test/mockserver       a stand-in Prometheus API for the e2e suite
 
 `output` (JSON / table / ndjson rendering, `{items,next,has_more}`), `cliflags`
 (argv normalization), `update` (the passive "a newer release exists" check),
-the credential store, credential resolution, and the code behind `pkg/errors`
-and `pkg/transport` come from
+the credential store, credential resolution, the configuration engine, and the
+code behind `pkg/errors` and `pkg/transport` come from
 [agent-cli-kit](https://github.com/AngelMsger/agent-cli-kit), shared by every
 CLI in the family; prometheus-cli supplies its own hints, User-Agent, keychain
-service name, auth schemes and release repository. `pkg/errors` and `pkg/transport`
+service name, auth schemes, settings table and release repository. `pkg/errors` and `pkg/transport`
 stay as re-exports under their existing names: `pkg/errors` installs
 `hints.go` with `SetGuidance` when the package loads, and `pkg/transport.New`
 defaults the User-Agent to `prometheus-cli/<version>`.
@@ -225,6 +225,14 @@ slash, and **trims a trailing `/api/v1`**. Pasting the API endpoint instead of
 the server root is the most common Prometheus setup mistake, and storing it
 would turn every later command into a 404. `config.NormalizeServiceURL` does the
 same at the persistence boundary, so a context never records one.
+
+`internal/config` registers the settings (keys, `PROMETHEUS_*` variables,
+defaults), the file location, the command wording, both URL rules (assume
+`http://`, trim `/api/v1`) and the tenant check with agent-cli-kit's `config`
+package, which owns the layering, context selection, the atomic file write and
+set-context planning. prometheus-cli keeps the YAML shape structs that define
+the file format, and its `PlanServiceContext` wrapper points a `none` context
+at `doctor` instead of `auth login`.
 
 ## Discoverability — no dead-end inputs
 

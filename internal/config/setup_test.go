@@ -11,12 +11,16 @@ import (
 	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
 )
 
+// envNames lists every variable the schema binds, plus the context selector.
+var envNames = []string{"PROMETHEUS_URL", "PROMETHEUS_CREDENTIAL_URL", "PROMETHEUS_AUTH_SCHEME", "PROMETHEUS_USER",
+	"PROMETHEUS_TENANT", "PROMETHEUS_FORMAT", "PROMETHEUS_CLI_READ_ONLY", "PROMETHEUS_TOKEN", "PROMETHEUS_PASSWORD",
+	"PROMETHEUS_CONTEXT"}
+
 func cleanSetupEnv(t *testing.T) {
 	t.Helper()
-	for key := range envBindings {
+	for _, key := range envNames {
 		t.Setenv(key, "")
 	}
-	t.Setenv("PROMETHEUS_CONTEXT", "")
 }
 func setupFixture() NamedContext {
 	return NamedContext{Name: "team", BaseURL: "https://service.example.test/deploy", Auth: AuthConfig{Scheme: "bearer", Username: "PersonalUser", CredentialURL: "https://help.example.test/tokens"}}

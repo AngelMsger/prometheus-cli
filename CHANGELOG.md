@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Layered configuration, context selection, the config file write and
+  `config set-context` planning now come from agent-cli-kit's `config`
+  package. Commands, output, error codes, hints and the `config.yaml` format
+  are unchanged.
 - Credential validation, header encoding, keychain lookup and the credential
   recovery errors now come from agent-cli-kit's `auth` package. Messages, error
   codes, the tenant header and stored credentials are unchanged.

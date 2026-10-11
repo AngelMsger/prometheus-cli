@@ -48,7 +48,7 @@ func runConfigInit(t *testing.T, cfgDir, contextName, answers string) {
 	for _, name := range []string{
 		"PROMETHEUS_URL", "PROMETHEUS_AUTH_SCHEME", "PROMETHEUS_CREDENTIAL_URL", "PROMETHEUS_USER",
 		"PROMETHEUS_TENANT", "PROMETHEUS_FORMAT", "PROMETHEUS_PASSWORD", "PROMETHEUS_TOKEN",
-		"PROMETHEUS_CLI_READ_ONLY", envContextOverride,
+		"PROMETHEUS_CLI_READ_ONLY", "PROMETHEUS_CONTEXT",
 	} {
 		t.Setenv(name, "")
 	}
