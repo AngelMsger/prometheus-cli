@@ -18,18 +18,19 @@ pkg/transport         the shared HTTP client with prometheus-cli's User-Agent
 pkg/errors            the shared CLIError model, plus prometheus-cli's hints
 pkg/timeutil          human time expressions ⇄ Prometheus instants; step derivation
 pkg/constants         app name, defaults, build-time version vars
-internal/config       layered configuration + named contexts
-internal/auth         credential model; secrets live in the shared credstore
+internal/config       prometheus-cli's settings and file shape on the shared engine
+internal/auth         prometheus-cli's auth schemes and tenant on top of the shared resolver
 skills/prometheus     the companion Skill, embedded into the binary
 test/mockserver       a stand-in Prometheus API for the e2e suite
 ```
 
 `output` (JSON / table / ndjson rendering, `{items,next,has_more}`), `cliflags`
 (argv normalization), `update` (the passive "a newer release exists" check),
-the credential store, and the code behind `pkg/errors` and `pkg/transport` come
-from [agent-cli-kit](https://github.com/AngelMsger/agent-cli-kit), shared by
-every CLI in the family; prometheus-cli supplies its own hints, User-Agent,
-keychain service name and release repository. `pkg/errors` and `pkg/transport`
+the credential store, credential resolution, the configuration engine, and the
+code behind `pkg/errors` and `pkg/transport` come from
+[agent-cli-kit](https://github.com/AngelMsger/agent-cli-kit), shared by every
+CLI in the family; prometheus-cli supplies its own hints, User-Agent, keychain
+service name, auth schemes, settings table and release repository. `pkg/errors` and `pkg/transport`
 stay as re-exports under their existing names: `pkg/errors` installs
 `hints.go` with `SetGuidance` when the package loads, and `pkg/transport.New`
 defaults the User-Agent to `prometheus-cli/<version>`.
@@ -191,9 +192,12 @@ scheme is `none`**: no credential is resolved, nothing is read from the
 keychain, and `PROMETHEUS_URL` alone is a complete configuration.
 
 `basic` and `bearer` cover the deployments that do authenticate (a reverse
-proxy, an ingress, a hosted vendor, a Kubernetes service account). A `none`
-credential is still a `Credential` and still produces a decorator, because it
-carries the other piece of request identity:
+proxy, an ingress, a hosted vendor, a Kubernetes service account).
+`internal/auth` registers the three schemes with agent-cli-kit's `auth`
+package, which owns the validation, the header encoding, the keychain lookup
+and the recovery errors; its own `Credential` wraps the kit's and adds the
+tenant. A `none` credential is still a `Credential` and still produces a
+decorator, because it carries the other piece of request identity:
 
 `auth.Credential.TenantID` is sent as `X-Scope-OrgID` for Cortex, Mimir and
 Thanos Receive. It is not a secret, and it is not personal — every member of a
@@ -204,9 +208,14 @@ result*, not an error: a missing tenant is a silent wrong answer.
 
 `AccountKey` includes the URL path, so one gateway host fronting several
 path-routed deployments does not collapse their secrets into one keychain entry.
-The key is built here, in `internal/auth`; the secret itself is kept by
-agent-cli-kit's `credstore` under the `prometheus-cli` keychain service, with
-its file fallback in the config directory.
+`internal/auth` turns this on when it registers with agent-cli-kit's `auth`
+package (`AccountKeyIncludesPath`); the secret itself is kept by agent-cli-kit's
+`credstore` under the `prometheus-cli` keychain service, with its file fallback
+in the config directory. `config init` saves under the normalized URL and never
+deletes an entry. `auth logout` removes the shared entry for the active
+context's deployment and scheme. `config delete-context` removes the deleted
+context's entry only when no remaining context resolves the same account key,
+only after the config file is written, and not at all for a `none` context.
 
 Verification (`auth login`, `doctor`) reads `status/buildinfo`. Prometheus
 exposes no identity endpoint, so there is no authenticated user to assert; a
@@ -220,6 +229,14 @@ slash, and **trims a trailing `/api/v1`**. Pasting the API endpoint instead of
 the server root is the most common Prometheus setup mistake, and storing it
 would turn every later command into a 404. `config.NormalizeServiceURL` does the
 same at the persistence boundary, so a context never records one.
+
+`internal/config` registers the settings (keys, `PROMETHEUS_*` variables,
+defaults), the file location, the command wording, both URL rules (assume
+`http://`, trim `/api/v1`) and the tenant check with agent-cli-kit's `config`
+package, which owns the layering, context selection, the atomic file write and
+set-context planning. prometheus-cli keeps the YAML shape structs that define
+the file format, and its `PlanServiceContext` wrapper points a `none` context
+at `doctor` instead of `auth login`.
 
 ## Discoverability — no dead-end inputs
 
@@ -235,7 +252,7 @@ Every identifier a command accepts is discoverable from another command:
 | rule group, rule file, rule name | `rule list` |
 | alert name | `rule list --type alert`, `alert list` |
 | status topic | `status --help` (each topic is its own subcommand) |
-| context name | `config contexts` |
+| context name | `config get-contexts` |
 
 Where a command cannot list its own inputs, its error `next_steps` names the one
 that can.
@@ -275,8 +292,9 @@ exit status, discovery and query advisories, cursor continuation, empty
 responses, ambiguous time windows on every command that takes one, and
 pre-request validation against isolated synthetic HTTP fixtures.
 `internal/app/config_credentials_test.go` drives the real `config init` line
-wizard against a mocked keyring to pin that a context edit never costs a stored
-credential.
+wizard and `config delete-context` against a mocked keyring to pin that a
+context edit never costs a stored credential and a delete keeps any secret
+another context still resolves.
 
 - `go test ./...` — unit tests, including the normalization, error
   classification, step derivation and credential contracts, plus

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	kit "github.com/angelmsger/agent-cli-kit/auth"
 	"github.com/angelmsger/agent-cli-kit/credstore"
 	"github.com/angelmsger/prometheus-cli/pkg/constants"
 )
@@ -22,7 +23,7 @@ const (
 	BackendKeychain = credstore.BackendKeychain
 	BackendFile     = credstore.BackendFile
 	// BackendNone is reported when the scheme carries no secret to store.
-	BackendNone = "none"
+	BackendNone = kit.BackendNone
 )
 
 // NewStore returns a Store whose file fallback lives in dir.

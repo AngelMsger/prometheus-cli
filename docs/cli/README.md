@@ -37,7 +37,8 @@ is published at <https://angelmsger.github.io/prometheus-cli/cli/>.
 | Command | Description |
 | --- | --- |
 | [`prometheus-cli config`](https://angelmsger.github.io/prometheus-cli/cli/#prometheus-cli-config) | Set up and inspect configuration and contexts |
-| [`prometheus-cli config contexts`](https://angelmsger.github.io/prometheus-cli/cli/#prometheus-cli-config-contexts) | List configured contexts and which one is current |
+| [`prometheus-cli config delete-context`](https://angelmsger.github.io/prometheus-cli/cli/#prometheus-cli-config-delete-context) | Delete a context and its stored credential |
+| [`prometheus-cli config get-contexts`](https://angelmsger.github.io/prometheus-cli/cli/#prometheus-cli-config-get-contexts) | List configured contexts and which one is current |
 | [`prometheus-cli config init`](https://angelmsger.github.io/prometheus-cli/cli/#prometheus-cli-config-init) | Interactively configure a context and store credentials |
 | [`prometheus-cli config set-context`](https://angelmsger.github.io/prometheus-cli/cli/#prometheus-cli-config-set-context) | Configure service presets without credentials or network access |
 | [`prometheus-cli config show`](https://angelmsger.github.io/prometheus-cli/cli/#prometheus-cli-config-show) | Show the resolved configuration with field provenance |

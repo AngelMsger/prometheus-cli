@@ -102,7 +102,9 @@ if the scheme has one, goes to the OS keychain — never to the config file.
 When a configuration already exists, re-running `config init` lists the contexts
 and asks whether to **edit** one (prefilled), **add** a new one, or **replace**
 everything. `config init --context prod` skips that question and targets the
-named context directly.
+named context directly. A new context name is saved trimmed and in lower case
+(`--context Prod` writes `prod`); existing names keep their spelling and match
+in any case.
 
 `auth login` is the lighter form: it re-prompts only for the credential of the
 already-configured context. On a `none` context it returns `AUTH_NOT_REQUIRED`
@@ -139,10 +141,16 @@ came from.
 Contexts are kubectl-style and live in one config file:
 
 ```bash
-prometheus-cli config contexts             # list them, and which is current
+prometheus-cli config get-contexts         # list them, and which is current
 prometheus-cli config use-context prod     # change the default
 prometheus-cli --use-context staging query instant --query up
+prometheus-cli config delete-context staging   # remove one, and its unused secret
 ```
+
+`config delete-context` removes the context and then its stored secret, unless
+another context on the same server URL (host and path) and scheme still uses
+it. Deleting the current context makes the first remaining one current; the
+only context cannot be deleted (`LAST_CONTEXT`).
 
 When more than one context is configured and none was selected explicitly, the
 CLI emits a one-line notice on stderr naming the context it fell back to —
@@ -265,7 +273,7 @@ identity is a normal no-change result. Network, permission and credential-store
 failures retain their structured errors instead of suggesting a fresh login.
 
 Multiple different verified identities return `AUTH_REUSE_AMBIGUOUS`; discover
-context names with `config contexts`, then repeat with `--from-context <name>`.
+context names with `config get-contexts`, then repeat with `--from-context <name>`.
 The command does not replace identities or switch authentication schemes. As
 with native `auth login`, updating this CLI's own settings remains available
 in remote read-only mode; `--dry-run` never changes settings or credentials.

@@ -29,30 +29,19 @@ func TestValidateRejectsIncompleteCredentials(t *testing.T) {
 		name string
 		cred Credential
 		code string
+		msg  string
 	}{
-		{"basic without a password", Credential{Scheme: SchemeBasic, Username: "u"}, "AUTH_NO_BASIC"},
-		{"basic without a username", Credential{Scheme: SchemeBasic, Secret: "s"}, "AUTH_NO_BASIC"},
-		{"bearer without a token", Credential{Scheme: SchemeBearer}, "AUTH_NO_TOKEN"},
-		{"an unknown scheme", Credential{Scheme: "oauth"}, "AUTH_BAD_SCHEME"},
+		{"basic without a password", Credential{Scheme: SchemeBasic, Username: "u"}, "AUTH_NO_BASIC", "basic auth requires both a username and a password"},
+		{"basic without a username", Credential{Scheme: SchemeBasic, Secret: "s"}, "AUTH_NO_BASIC", "basic auth requires both a username and a password"},
+		{"bearer without a token", Credential{Scheme: SchemeBearer}, "AUTH_NO_TOKEN", "bearer auth requires a token"},
+		{"an unknown scheme", Credential{Scheme: "oauth"}, "AUTH_BAD_SCHEME", `unknown auth scheme "oauth" (want none, basic or bearer)`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ce := cerrors.AsCLIError(tc.cred.Validate())
-			if ce == nil || ce.Code != tc.code {
-				t.Fatalf("got %+v, want code %s", ce, tc.code)
+			if ce == nil || ce.Code != tc.code || ce.Message != tc.msg {
+				t.Fatalf("got %+v, want %s %q", ce, tc.code, tc.msg)
 			}
 		})
-	}
-}
-
-func TestHeaderPerScheme(t *testing.T) {
-	t.Parallel()
-	basic := Credential{Scheme: SchemeBasic, Username: "alice", Secret: "s3cret"}
-	if got := basic.Header(); got != "Basic YWxpY2U6czNjcmV0" {
-		t.Fatalf("basic header = %q", got)
-	}
-	bearer := Credential{Scheme: SchemeBearer, Secret: "tok"}
-	if got := bearer.Header(); got != "Bearer tok" {
-		t.Fatalf("bearer header = %q", got)
 	}
 }
 
@@ -84,20 +73,19 @@ func TestDecoratorAppliesBothHeaders(t *testing.T) {
 // keychain key has to include the path or the two would share one secret.
 func TestAccountKeyDistinguishesPathRoutedDeployments(t *testing.T) {
 	t.Parallel()
-	a := AccountKey("https://gw.example.com/team-a", SchemeBearer)
-	b := AccountKey("https://gw.example.com/team-b", SchemeBearer)
-	if a == b {
-		t.Fatalf("path-routed deployments share a key: %q", a)
+	if got := AccountKey("https://gw.example.com/team-a/", SchemeBearer); got != "gw.example.com/team-a:bearer" {
+		t.Fatalf("path-routed AccountKey = %q", got)
 	}
 	if got := AccountKey("http://localhost:9090", SchemeNone); got != "localhost:9090:none" {
 		t.Fatalf("AccountKey = %q", got)
 	}
 }
 
-func TestRedactedHidesTheSecret(t *testing.T) {
+// The tenant is not a secret, so a redacted credential still names it.
+func TestRedactedKeepsTheTenant(t *testing.T) {
 	t.Parallel()
-	got := Credential{Scheme: SchemeBearer, Secret: "supersecrettoken"}.Redacted()
-	if got.Secret == "supersecrettoken" || len(got.Secret) != len("supersecrettoken") {
-		t.Fatalf("Redacted secret = %q", got.Secret)
+	got := Credential{Scheme: SchemeBearer, Secret: "supersecrettoken", TenantID: "team-a"}.Redacted()
+	if got.Secret == "supersecrettoken" || got.TenantID != "team-a" || got.Scheme != SchemeBearer {
+		t.Fatalf("Redacted() = %+v", got)
 	}
 }

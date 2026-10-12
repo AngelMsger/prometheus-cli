@@ -1,12 +1,16 @@
-// Package auth models Prometheus credentials, resolves them from configuration
-// or secure storage, and applies them to outgoing HTTP requests.
+// Package auth declares prometheus-cli's auth schemes and resolves credentials
+// from configuration or secure storage. Credential validation, header encoding
+// and the recovery errors come from agent-cli-kit/auth; this package registers
+// Prometheus's schemes and wording with it and adds the tenant header.
 package auth
 
 import (
-	"net/url"
-	"strings"
+	"net/http"
 
-	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
+	kit "github.com/angelmsger/agent-cli-kit/auth"
+	"github.com/angelmsger/prometheus-cli/pkg/constants"
+	_ "github.com/angelmsger/prometheus-cli/pkg/errors" // installs Prometheus's error guidance
+	"github.com/angelmsger/prometheus-cli/pkg/transport"
 )
 
 // Scheme identifies an authentication scheme.
@@ -23,7 +27,36 @@ const (
 	SchemeBearer = "bearer"
 )
 
+func init() {
+	kit.Register(&kit.Product{
+		Schemes: []kit.Scheme{
+			{Name: SchemeNone, Kind: kit.None},
+			{Name: SchemeBasic, Kind: kit.Basic,
+				Missing: "basic auth requires both a username and a password"},
+			{Name: SchemeBearer, Kind: kit.Bearer,
+				Missing: "bearer auth requires a token"},
+		},
+		DefaultScheme:    SchemeNone,
+		Name:             "Prometheus",
+		Doctor:           constants.AppName + " doctor",
+		MissingStep:      "Only if the host retry also reports missing credentials, run `" + constants.AppName + " config init` in the user's terminal or set PROMETHEUS_* environment variables.",
+		InaccessibleStep: "Do not run `config init` unless the same check also fails in the host environment.",
+		ListSchemes:      true,
+		// prometheus-cli has always keyed secrets by host and URL path, so one
+		// gateway host fronting several path-routed deployments keeps one
+		// keychain entry per deployment.
+		AccountKeyIncludesPath: true,
+	})
+}
+
+// tenantHeader is the multi-tenancy header Cortex, Mimir and Thanos Receive
+// read. Sending it to a single-tenant Prometheus is harmless: unknown headers
+// are ignored.
+const tenantHeader = "X-Scope-OrgID"
+
 // Credential is a fully resolved credential ready to authenticate requests.
+// Its Validate, Header, Redacted and NeedsSecret methods follow the schemes
+// registered above; Decorator also sends the tenant.
 type Credential struct {
 	Scheme   string
 	Username string // the login the secret belongs to (basic only)
@@ -34,61 +67,46 @@ type Credential struct {
 	TenantID string
 }
 
+// kitCredential is c without the tenant, as agent-cli-kit/auth models it.
+func (c Credential) kitCredential() kit.Credential {
+	return kit.Credential{Scheme: c.Scheme, Username: c.Username, Secret: c.Secret}
+}
+
 // NeedsSecret reports whether the scheme requires a stored secret at all.
 // A `none` credential is complete as soon as it exists, so nothing prompts for
 // a secret, nothing is written to the keychain, and nothing fails when the
 // keychain is unreachable.
-func (c Credential) NeedsSecret() bool { return c.Scheme != SchemeNone }
+func (c Credential) NeedsSecret() bool { return c.kitCredential().NeedsSecret() }
 
 // Validate reports whether the credential is internally consistent.
-func (c Credential) Validate() error {
-	switch c.Scheme {
-	case SchemeNone:
-		return nil
-	case SchemeBasic:
-		if c.Username == "" || c.Secret == "" {
-			return cerrors.New(cerrors.CategoryConfig, "AUTH_NO_BASIC",
-				"basic auth requires both a username and a password")
+func (c Credential) Validate() error { return c.kitCredential().Validate() }
+
+// Header returns the Authorization header value for the credential, or "" for
+// the `none` scheme.
+func (c Credential) Header() string { return c.kitCredential().Header() }
+
+// Decorator returns a transport.Decorator that authenticates every request and
+// applies the tenant header. It is never nil, so a `none` credential still
+// carries the tenant id.
+func (c Credential) Decorator() transport.Decorator {
+	authenticate := c.kitCredential().Decorator()
+	tenant := c.TenantID
+	return func(req *http.Request) {
+		authenticate(req)
+		if tenant != "" {
+			req.Header.Set(tenantHeader, tenant)
 		}
-	case SchemeBearer:
-		if c.Secret == "" {
-			return cerrors.New(cerrors.CategoryConfig, "AUTH_NO_TOKEN",
-				"bearer auth requires a token")
-		}
-	default:
-		return cerrors.Newf(cerrors.CategoryConfig, "AUTH_BAD_SCHEME",
-			"unknown auth scheme %q (want none, basic or bearer)", c.Scheme)
 	}
-	return nil
 }
 
-// Redacted returns a copy safe for logging: the secret is masked.
+// Redacted returns a copy safe for logging: the secret is masked and the
+// tenant, which is not a secret, is kept.
 func (c Credential) Redacted() Credential {
-	c.Secret = maskSecret(c.Secret)
+	c.Secret = c.kitCredential().Redacted().Secret
 	return c
 }
 
-func maskSecret(s string) string {
-	if s == "" {
-		return ""
-	}
-	if len(s) <= 4 {
-		return "****"
-	}
-	return strings.Repeat("*", len(s)-4) + s[len(s)-4:]
-}
-
 // AccountKey derives the keychain account identifier for a base URL and scheme.
-// It is stable across runs so credentials can be located later.
-func AccountKey(baseURL, scheme string) string {
-	host := baseURL
-	if u, err := url.Parse(baseURL); err == nil && u.Host != "" {
-		host = u.Host
-		if p := strings.Trim(u.Path, "/"); p != "" {
-			// A path-routed deployment (one host serving several tenants under
-			// different prefixes) needs its own entry, not the host's.
-			host += "/" + p
-		}
-	}
-	return host + ":" + scheme
-}
+// It is stable across runs so credentials can be located later, and it
+// includes the URL path (see AccountKeyIncludesPath above).
+func AccountKey(baseURL, scheme string) string { return kit.AccountKey(baseURL, scheme) }
