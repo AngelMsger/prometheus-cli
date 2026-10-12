@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-12
+
 ### Added
 
 - `config delete-context <name>` removes a context. Its stored secret is removed
@@ -177,7 +179,8 @@ sibling `openobserve-cli` / `jenkins-cli` / `confluence-cli` / `bitbucket-cli` /
 - Base URLs ending in `/api/v1` are trimmed back to the server root at both the
   client and the persistence boundary.
 
-[Unreleased]: https://github.com/AngelMsger/prometheus-cli/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/AngelMsger/prometheus-cli/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/AngelMsger/prometheus-cli/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/AngelMsger/prometheus-cli/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/AngelMsger/prometheus-cli/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/AngelMsger/prometheus-cli/releases/tag/v0.1.0
