@@ -1,12 +1,14 @@
 package app
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -192,5 +194,71 @@ func TestEquivalentURLLoginKeepsCredentialKeyAfterReload(t *testing.T) {
 	got, err := auth.Resolve(fresh, config.Secrets{}, auth.NewStore(s.cfgDir))
 	if err != nil || got != cred {
 		t.Fatalf("equivalent URL orphaned credential: %v", err)
+	}
+}
+
+func TestLoginStorageFailurePreservesPartialOutcomeAndHostRecovery(t *testing.T) {
+	for _, backend := range []string{"", "keychain"} {
+		t.Run("backend="+backend, func(t *testing.T) {
+			s, cfg, cred := loginStateForTest(t)
+			cause := errors.New("storage failure containing a sentinel-secret")
+			written := false
+			services := loginServices{
+				Verify: func(config.Config, auth.Credential) error { return nil },
+				Save:   func(string, auth.Credential) (string, error) { return backend, cause },
+				Write:  func(string, config.File) error { written = true; return nil },
+			}
+			gotBackend, err := completeLogin(s, cfg, cred, services)
+			ce := cerrors.AsCLIError(err)
+			if !errors.Is(err, cause) || gotBackend != backend || written || ce.Code != "CREDENTIAL_SAVE_FAILED" || ce.Retryable {
+				t.Fatalf("lost storage outcome: backend=%q written=%v error=%+v", gotBackend, written, ce)
+			}
+			if ce.Recovery == nil || ce.Recovery.Scope != "host" || ce.Recovery.Action != "retry_current_command" {
+				t.Fatalf("missing host recovery: %+v", ce)
+			}
+			if backend != "" {
+				details, ok := ce.Details.(map[string]any)
+				if !ok || details["credential_stored"] != true || details["stored_in"] != backend {
+					t.Fatalf("missing partial persistence: %+v", ce)
+				}
+			}
+			payload, marshalErr := json.Marshal(ce.Payload())
+			if marshalErr != nil || strings.Contains(string(payload), "sentinel-secret") || strings.Contains(string(payload), cred.Secret) {
+				t.Fatal("storage failure exposed secret material")
+			}
+			if _, err := os.Stat(config.ConfigFilePath(s.cfgDir)); !os.IsNotExist(err) {
+				t.Fatal("storage failure wrote login identity")
+			}
+		})
+	}
+}
+
+func TestLogoutCommandReportsIncompleteRemovalAndKeepsServiceGuard(t *testing.T) {
+	keyring.MockInit()
+	s, _, _ := loginStateForTest(t)
+	path := filepath.Join(s.cfgDir, "credentials")
+	broken := []byte("not-json-sentinel-secret")
+	if err := os.WriteFile(path, broken, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newAuthLogoutCmd(s)
+	err := cmd.RunE(cmd, nil)
+	ce := cerrors.AsCLIError(err)
+	var syntax *json.SyntaxError
+	if ce.Code != "LOGOUT_FAILED" || ce.Retryable || ce.Recovery == nil || ce.Recovery.Scope != "host" || !errors.As(err, &syntax) {
+		t.Fatalf("lost logout failure: %+v", ce)
+	}
+	payload, marshalErr := json.Marshal(ce.Payload())
+	if marshalErr != nil || strings.Contains(string(payload), string(broken)) {
+		t.Fatal("logout failure exposed credential contents")
+	}
+	after, readErr := os.ReadFile(path)
+	if readErr != nil || string(after) != string(broken) {
+		t.Fatal("logout overwrote unreadable credential data")
+	}
+	s.resolved.Config.CredentialBaseURL = "https://different.example.test"
+	err = cmd.RunE(cmd, nil)
+	if cerrors.AsCLIError(err).Code != "CREDENTIAL_SERVICE_MISMATCH" {
+		t.Fatalf("reclassified service guard: %v", err)
 	}
 }
