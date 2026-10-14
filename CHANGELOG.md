@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Login storage failures preserve any known saved backend and direct recovery
+  to the host credential store without recording an unconfirmed identity.
+  Logout failures report incomplete removal instead of generic recovery.
+
 ## [0.4.0] - 2026-10-12
 
 ### Added

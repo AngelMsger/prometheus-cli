@@ -114,9 +114,12 @@ func completeLogin(s *appState, cfg config.Config, cred auth.Credential, service
 	}
 	backend, err := services.Save(cfg.BaseURL, cred)
 	if err != nil {
-		return "", cerrors.Wrap(err, cerrors.CategoryConfig, "CREDENTIAL_SAVE_FAILED",
-			"credentials verified but could not be stored").
-			WithNextSteps(constants.AppName+" doctor", constants.AppName+" auth login")
+		failure := credentialPersistenceFailure(err, "CREDENTIAL_SAVE_FAILED", "credentials verified but could not be safely stored")
+		if backend != "" {
+			failure.Message = "credential stored, but cleanup did not complete; login identity was not saved"
+			failure.WithDetails(map[string]any{"context": name, "server": cfg.BaseURL, "scheme": cred.Scheme, "credential_stored": true, "stored_in": backend})
+		}
+		return backend, failure
 	}
 	if !reflect.DeepEqual(original, file) {
 		if err := services.Write(s.cfgDir, file); err != nil {
