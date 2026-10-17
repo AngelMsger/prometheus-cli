@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The `skill` commands, the Skill notice and `doctor` read the Skill version,
+  load state, installed copies and agent directories through agent-cli-kit's
+  `skill` package instead of a private copy. Output is unchanged.
+
 ### Fixed
 
 - Login storage failures preserve any known saved backend and direct recovery
