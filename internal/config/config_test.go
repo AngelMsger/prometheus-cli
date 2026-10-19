@@ -140,19 +140,26 @@ func TestWording(t *testing.T) {
 }
 
 // A `none` context has nothing to log in with, so its plan points at doctor
-// instead of auth login.
+// instead of auth login, and offers no reuse. A context that authenticates
+// without an identity is offered reuse before any sign-in step (the schemes are
+// registered for this package's tests by reuse_test.go).
 func TestPlanNextStepsFollowTheScheme(t *testing.T) {
-	for scheme, last := range map[string]string{
-		SchemeNone:   "prometheus-cli --use-context 'team' doctor",
-		SchemeBasic:  "prometheus-cli --use-context 'team' auth login",
-		SchemeBearer: "prometheus-cli --use-context 'team' auth login",
+	const reuse = "prometheus-cli --use-context 'team' auth reuse"
+	const guide = "prometheus-cli --use-context 'team' auth guide"
+	const login = "prometheus-cli --use-context 'team' auth login"
+	for scheme, want := range map[string][]string{
+		SchemeNone:   {guide, "prometheus-cli --use-context 'team' doctor"},
+		SchemeBasic:  {reuse, guide, login},
+		SchemeBearer: {reuse, guide, login},
 	} {
-		resolved := &Resolved{Config: Config{BaseURL: "https://p.example.com", Auth: AuthConfig{Scheme: scheme}}}
+		// The scheme comes from the flag, as a preset does; it does not limit
+		// what reuse may adopt.
+		resolved := &Resolved{Config: Config{BaseURL: "https://p.example.com", Auth: AuthConfig{Scheme: scheme}},
+			Sources: map[string]string{fieldAuthScheme: "flag"}}
 		plan, err := PlanServiceContext(File{}, "Team", resolved, false, false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := []string{"prometheus-cli --use-context 'team' auth guide", last}
 		if !reflect.DeepEqual(plan.NextSteps, want) {
 			t.Errorf("%s: next steps = %q", scheme, plan.NextSteps)
 		}

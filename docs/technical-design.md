@@ -308,12 +308,22 @@ another context still resolves.
 
 ### Existing credential reuse
 
-`internal/app/auth_reuse.go` matches stored contexts and verifies credentials
-through native auth/client code before associating identity with the destination.
-It never writes the credential store, consumes environment secrets or changes
-current_context. Public `config set-context` remains offline and credential-free.
-The destination's complete service identity and the captured config are checked
-again before writing. See the installation guide for the result and recovery contract.
+The decision is agent-cli-kit's `reuse` package, shared by the family.
+`internal/app/auth_reuse.go` describes the stored contexts to it
+(`config.ReuseContexts`: service identity = normalized URL, path included, plus
+the tenant; credential-key spelling; effective scheme; username), and supplies
+native resolution (`auth.ResolveLookup`, which also reports what the keychain and
+file answered), verification bounded by the reuse deadline
+(`verifyCredentialWithin`, sending the destination's tenant as `X-Scope-OrgID`)
+and the write, which rereads and compares the config before replacing it. The
+kit keeps `none` out as a source and a destination, including a `none` context
+named by `--from-context`, so reuse never drops authentication. It never writes
+the credential store, consumes environment secrets or changes current_context.
+Public `config set-context` remains offline and credential-free.
+`config.Load` computes the runtime-only `Config.ReuseStep` offline, which the
+guide, the setup plan, credential errors, `doctor` and HTTP 401 errors (in
+`root.Execute`) list before sign-in. See the installation guide for the result
+and recovery contract.
 
 Equivalent service URL overrides preserve the persisted native credential lookup
 key without redirecting requests or copying secrets. Logout removes that same

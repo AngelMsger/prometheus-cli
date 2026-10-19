@@ -249,8 +249,9 @@ the three TSDB admin commands.
 
 ## Reuse an existing login
 
-After preparing a team context, associate an existing personal login without
-creating another token or changing the active context:
+After preparing a team context, point it at a login this machine already holds
+for the same service, whatever scheme it uses, without creating another token or
+changing the active context:
 
 ```sh
 prometheus-cli --use-context team auth reuse --dry-run
@@ -258,25 +259,48 @@ prometheus-cli --use-context team auth reuse
 prometheus-cli --use-context team auth status
 ```
 
-Reuse matches the complete normalized service URL, authentication scheme and
-provider scope (deployment flavor, organization or tenant where applicable).
-It verifies the source credential before filling missing destination identity.
-A populated destination identity is preserved. Credentials stay in their native
-store; no secrets or environment credentials are copied. Both source and unrelated
-contexts remain unchanged. Configuration changes during verification stop the write.
+Reuse matches the complete normalized service URL (its path included) and the
+tenant before any credential access; a `none` context is neither a source nor a
+destination, since it has no login. It looks at contexts under the destination's
+scheme first, then at a password or bearer token under the other scheme,
+including one stored for this service that no context points at (paired with
+the usernames recorded on the service, and only when every context keyed by the
+same host and path is this same service). A username recorded under
+`bearer` is only a label; a destination with a label adopts a password only for
+that username. A destination with a basic username, and any login that still
+works, is kept, even when another source is selected explicitly. Credentials stay
+in their native store; no secrets or environment credentials are copied. Both
+source and unrelated contexts remain unchanged, and the destination keeps its
+tenant, which is sent with the reused credential. Configuration or credential
+changes during verification stop the write.
 
-The JSON result reports `context`, `state`, `changed`, `verified`, `dry_run` and,
-when selected, `source_context`. States are `available` (verified preview),
-`reused`, `unchanged`, or `unavailable`. The last two do not establish successful
-authentication: always retain the separate `auth status` check. No reusable
-identity is a normal no-change result. Network, permission and credential-store
-failures retain their structured errors instead of suggesting a fresh login.
+Checks the command did not make before (of a labelled destination, of stored
+secrets, of the other scheme) run within ten seconds of the start, or the
+`--timeout` when shorter, and only adopt on reliable evidence that the destination
+has no working login: the keychain itself answered during this run. Otherwise the
+earlier answer stands, with its `reason`. A scheme supplied by `--auth-scheme`,
+`PROMETHEUS_AUTH_SCHEME`, `.env` or a credential variable keeps reuse within that
+scheme.
 
-Multiple different verified identities return `AUTH_REUSE_AMBIGUOUS`; discover
-context names with `config get-contexts`, then repeat with `--from-context <name>`.
-The command does not replace identities or switch authentication schemes. As
-with native `auth login`, updating this CLI's own settings remains available
-in remote read-only mode; `--dry-run` never changes settings or credentials.
+The JSON result reports `context`, `state`, `changed`, `verified`, `dry_run`,
+`next_steps` and, when a source was selected, `scheme`, `username` (for basic)
+and `source_context` (when the source is a context). States are `available`
+(verified preview), `reused`, `unchanged`, or `unavailable`. The last two do not
+establish successful authentication: run the check `next_steps` names
+(`auth status`). No reusable login is a normal no-change result. Network,
+permission and credential-store failures retain their structured errors instead
+of suggesting a fresh login.
+
+Several different verified logins return `AUTH_REUSE_AMBIGUOUS` with
+`details.candidates`; repeat with `--from-context <name>`, `--from-scheme
+<scheme>`, or both (the stored secret of that scheme paired with that context's
+username). As with native `auth login`, updating this CLI's own settings remains
+available in remote read-only mode; `--dry-run` never changes settings or
+credentials.
+
+`config set-context`, `auth guide`, missing-credential errors, `doctor` and HTTP
+401 errors list `auth reuse` before any sign-in step when the configuration file
+shows that a stored login could apply.
 
 Equivalent service URL overrides preserve the persisted native credential lookup
 key without redirecting requests or copying secrets. Logout removes that same

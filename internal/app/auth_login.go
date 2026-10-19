@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/angelmsger/prometheus-cli/internal/auth"
@@ -139,10 +140,16 @@ func completeLogin(s *appState, cfg config.Config, cred auth.Credential, service
 // it confirms the URL is a Prometheus API and that the gateway in front of it
 // accepted what the credential sends.
 func verifyCredential(s *appState, cfg config.Config, cred auth.Credential) error {
+	return verifyCredentialWithin(context.Background(), s, cfg, cred)
+}
+
+// verifyCredentialWithin verifies cred under parent, which may carry an earlier
+// deadline than the request timeout.
+func verifyCredentialWithin(parent context.Context, s *appState, cfg config.Config, cred auth.Credential) error {
 	if err := cred.Validate(); err != nil {
 		return err
 	}
-	ctx, cancel := cmdContext(s)
+	ctx, cancel := context.WithTimeout(parent, s.timeout())
 	defer cancel()
 	client, err := apiclient.BuildClient(apiclient.BuildParams{
 		BaseURL:       cfg.BaseURL,
