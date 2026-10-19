@@ -46,7 +46,7 @@ func ResolveLookup(cfg config.Config, secrets config.Secrets, store *Store) (Cre
 func withReuseStep(err error, cfg config.Config) error {
 	ce := cerrors.AsCLIError(err)
 	switch ce.Code {
-	case "AUTH_NO_BASIC", "AUTH_NO_BEARER":
+	case "AUTH_NO_BASIC", "AUTH_NO_TOKEN":
 		if cfg.ReuseStep != "" {
 			return ce.WithNextSteps(append([]string{cfg.ReuseStep}, ce.NextSteps...)...)
 		}

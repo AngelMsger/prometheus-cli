@@ -101,6 +101,18 @@ func TestResolveLeadsSignInWithReuse(t *testing.T) {
 		t.Fatalf("no identity: %+v", ce)
 	}
 
+	// An empty bearer secret reports AUTH_NO_TOKEN; it leads with reuse too.
+	bearer := newStoreWithKeyring(t.TempDir(), failingKeyring{err: keyring.ErrNotFound})
+	if _, err := bearer.Save(AccountKey(cfg.BaseURL, SchemeBearer), ""); err != nil {
+		t.Fatal(err)
+	}
+	bcfg := cfg
+	bcfg.Auth.Scheme = SchemeBearer
+	_, err = Resolve(bcfg, config.Secrets{}, bearer)
+	if ce = cerrors.AsCLIError(err); ce.Code != "AUTH_NO_TOKEN" || len(ce.NextSteps) == 0 || ce.NextSteps[0] != step {
+		t.Fatalf("empty bearer: %+v", ce)
+	}
+
 	cfg.ReuseStep = ""
 	_, err = Resolve(cfg, config.Secrets{Password: "secret"}, s)
 	if ce = cerrors.AsCLIError(err); ce.Code != "AUTH_NO_BASIC" || (len(ce.NextSteps) > 0 && ce.NextSteps[0] == step) {
