@@ -267,6 +267,7 @@ built for coding agents. Browse the full set at
 
 MIT — see [LICENSE](LICENSE).
 
-To associate an existing login with a prepared team context, run
+To point a prepared team context at a login this machine already has for the
+same service and tenant, whatever scheme it uses, run
 `prometheus-cli --use-context team auth reuse --dry-run`, then omit `--dry-run`.
 See [existing-login reuse](docs/installation.md#reuse-an-existing-login).

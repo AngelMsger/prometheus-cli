@@ -147,7 +147,7 @@ prometheus-cli config init|show                                                 
 prometheus-cli config get-contexts|use-context <name>                            # named server contexts
 prometheus-cli config delete-context <name>                                      # remove a context and its unused secret
 prometheus-cli auth status|guide                                                 # reachability / credential guidance
-prometheus-cli auth reuse [--from-context <name>] [--dry-run]                    # associate an existing login
+prometheus-cli auth reuse [--from-context <name>] [--from-scheme <scheme>] [--dry-run]  # adopt an existing login
 prometheus-cli doctor                                                            # diagnose config / creds / connectivity
 prometheus-cli skill status|install|path|show|uninstall                          # manage the companion Skill
 ```
@@ -216,6 +216,11 @@ semantics, credential URL overrides, and failure recovery.
 
 ## Reuse existing authentication
 
-Before repeating login, preview `prometheus-cli --use-context <target> auth reuse
---dry-run`, then apply. Keep the separate `auth status` check. See
+A context without a working login can adopt one already verified for the same
+service URL, path and tenant, under either the basic or the bearer scheme.
+Workspace tools apply this during setup. Elsewhere the CLI lists `auth reuse`
+ahead of any sign-in step, including after an HTTP 401, and its result names the
+next step and the login it used (`scheme`, `username`). A working login is never
+replaced automatically; `--from-context` and `--from-scheme` select one
+explicitly. A `none` context needs no login and never takes part. See
 [reuse and ambiguity recovery](references/getting-started.md#reuse-existing-authentication).

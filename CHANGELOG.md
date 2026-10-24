@@ -6,6 +6,37 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `auth reuse` looks past the destination's own scheme. A context without a
+  working login (its token or password is absent, rejected or incomplete)
+  adopts a password or bearer token already verified for the same service URL,
+  path and tenant, under either scheme: another context's, or one stored for
+  this service that no context points at any more, paired with the usernames
+  the service's contexts record. Contexts under the destination's own scheme
+  still come first. A working login is never replaced automatically, not even
+  by an explicit selection. A username under `bearer` is now only a label: such
+  a context is checked instead of being reported `unchanged`, and a context on
+  the same stored token no longer makes the command fail when the keychain
+  shows that token is gone. Checks the command did not make before run within
+  ten seconds (or `--timeout`), adopt only when the keychain itself showed the
+  destination has no working login, and otherwise leave the earlier answer. A
+  scheme supplied by flag, environment, `.env` or a credential variable keeps
+  reuse within it.
+  A `none` context is still neither a source nor a destination. The decision
+  now comes from agent-cli-kit's shared `reuse` package.
+- The `auth reuse` result adds `scheme`, `username` and `next_steps`;
+  `AUTH_REUSE_AMBIGUOUS` adds `details.candidates`.
+- `config set-context`, `auth guide`, missing-credential errors, `doctor` and
+  HTTP 401 errors list `auth reuse` before any sign-in step when the
+  configuration file shows that a stored login could apply.
+
+### Added
+
+- `auth reuse --from-scheme <scheme>` selects the credential stored for the
+  service under that scheme; with `--from-context`, paired with that context's
+  username.
+
 ## [0.4.1] - 2026-10-19
 
 ### Changed

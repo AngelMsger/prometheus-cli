@@ -79,3 +79,43 @@ func TestResolveDefaultsToNoneAndCarriesTheTenant(t *testing.T) {
 		t.Fatalf("Resolve(bearer) = %+v, %v", cred, err)
 	}
 }
+
+// A context a stored login could serve lists `auth reuse` after the host retry
+// and before any sign-in step, and first when it lacks its identity.
+func TestResolveLeadsSignInWithReuse(t *testing.T) {
+	t.Parallel()
+	const step = "prometheus-cli --use-context 'team' auth reuse"
+	s := newStoreWithKeyring(t.TempDir(), failingKeyring{err: keyring.ErrNotFound})
+	cfg := config.Config{BaseURL: "https://prometheus.example.com", ReuseStep: step,
+		Auth: config.AuthConfig{Scheme: SchemeBearer, TenantID: "team-a"}}
+	_, l, err := ResolveLookup(cfg, config.Secrets{}, s)
+	ce := cerrors.AsCLIError(err)
+	if ce.Code != "CREDENTIAL_NOT_VISIBLE_OR_MISSING" || len(ce.NextSteps) < 4 ||
+		ce.NextSteps[2] != step || ce.NextSteps[3] != MissingStep || l.Keychain != credstore.Miss {
+		t.Fatalf("missing: %+v %+v", ce, l)
+	}
+
+	cfg.Auth.Scheme = SchemeBasic
+	_, err = Resolve(cfg, config.Secrets{Password: "secret"}, s)
+	if ce = cerrors.AsCLIError(err); ce.Code != "AUTH_NO_BASIC" || len(ce.NextSteps) == 0 || ce.NextSteps[0] != step {
+		t.Fatalf("no identity: %+v", ce)
+	}
+
+	// An empty bearer secret reports AUTH_NO_TOKEN; it leads with reuse too.
+	bearer := newStoreWithKeyring(t.TempDir(), failingKeyring{err: keyring.ErrNotFound})
+	if _, err := bearer.Save(AccountKey(cfg.BaseURL, SchemeBearer), ""); err != nil {
+		t.Fatal(err)
+	}
+	bcfg := cfg
+	bcfg.Auth.Scheme = SchemeBearer
+	_, err = Resolve(bcfg, config.Secrets{}, bearer)
+	if ce = cerrors.AsCLIError(err); ce.Code != "AUTH_NO_TOKEN" || len(ce.NextSteps) == 0 || ce.NextSteps[0] != step {
+		t.Fatalf("empty bearer: %+v", ce)
+	}
+
+	cfg.ReuseStep = ""
+	_, err = Resolve(cfg, config.Secrets{Password: "secret"}, s)
+	if ce = cerrors.AsCLIError(err); ce.Code != "AUTH_NO_BASIC" || (len(ce.NextSteps) > 0 && ce.NextSteps[0] == step) {
+		t.Fatalf("offered reuse without a source: %+v", ce)
+	}
+}

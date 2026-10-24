@@ -14,6 +14,8 @@ require() { [[ "$1" == *"$2"* ]] || { echo "FAIL: expected $2" >&2; exit 1; }; }
 
 out="$(run config set-context team --base-url https://offline.invalid/prom --auth-scheme bearer --dry-run)"
 require "$out" '"dry_run": true'
+# A context without an identity is offered reuse before any sign-in step.
+require "$out" $'"next_steps": [\n    "prometheus-cli --use-context \'team\' auth reuse"'
 [[ ! -e "$WORK/config/config.yaml" ]]
 
 # Personal identity and secrets in the environment must not reach a team preset.
@@ -31,6 +33,8 @@ out="$(run auth guide)"
 require "$out" 'https://help.invalid/team-tokens'
 require "$out" '"source": "file"'
 require "$out" "--use-context 'team' auth login"
+require "$out" "--use-context 'team' auth reuse"
+[[ "$out" != *"--use-context 'team' --use-context"* ]] || { echo 'FAIL: auth guide repeats --use-context' >&2; exit 1; }
 
 # A pasted API endpoint is trimmed back to the server root rather than stored.
 run config set-context endpoint --base-url https://offline.invalid/prom/api/v1 --auth-scheme none >/dev/null
@@ -38,9 +42,11 @@ out="$(run --use-context endpoint config show)"
 require "$out" 'https://offline.invalid/prom'
 [[ "$out" != *'/api/v1'* ]] || { echo 'FAIL: /api/v1 was stored in the base URL' >&2; exit 1; }
 
-# A `none` context points at doctor, not at a login that would store nothing.
+# A `none` context points at doctor, not at a login that would store nothing,
+# and is never offered reuse.
 out="$(run config set-context plain --base-url https://plain.invalid --auth-scheme none)"
 require "$out" "--use-context 'plain' doctor"
+[[ "$out" != *'auth reuse'* ]] || { echo 'FAIL: a none context was offered reuse' >&2; exit 1; }
 
 if run config set-context team --base-url https://other.invalid >out.json 2>error.json; then
   echo 'FAIL: conflicting setup succeeded' >&2; exit 1

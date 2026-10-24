@@ -1,6 +1,8 @@
 package config
 
 import (
+	"maps"
+
 	kit "github.com/angelmsger/agent-cli-kit/config"
 	"github.com/angelmsger/prometheus-cli/pkg/constants"
 )
@@ -24,16 +26,25 @@ type ContextPlan = kit.ContextPlan[NamedContext, Defaults]
 
 // PlanServiceContext builds a non-secret, target-specific merge without side
 // effects: the service URL, auth scheme, credential page and tenant from
-// resolved.
+// resolved. When reuse could adopt an existing login, the next steps lead with
+// it.
 func PlanServiceContext(file File, name string, resolved *Resolved, overwrite, activate bool) (ContextPlan, error) {
 	plan, err := kit.PlanServiceContext(file, name, kit.Encode(resolved.Config), resolved.Sources, overwrite, activate)
 	if err != nil {
 		return plan, err
 	}
+	planned, _ := plan.File.Context(plan.Context)
 	// A `none` context needs no personal credential at all; pointing the member
 	// at auth login would be a step that stores nothing.
-	if nc, _ := plan.File.Context(plan.Context); nc.Auth.Scheme == SchemeNone {
+	if planned.Auth.Scheme == SchemeNone {
 		plan.NextSteps[len(plan.NextSteps)-1] = constants.AppName + " --use-context " + kit.QuoteArg(plan.Context) + " doctor"
+	}
+	// The scheme a preset supplies is the context's own from now on, not a
+	// limit on what reuse may adopt.
+	sources := maps.Clone(resolved.Sources)
+	delete(sources, fieldAuthScheme)
+	if step := reuseStep(StoredContext(planned, plan.File.Defaults), sources, plan.File, plan.Context); step != "" {
+		plan.NextSteps = append([]string{step}, plan.NextSteps...)
 	}
 	return plan, nil
 }
@@ -82,6 +93,10 @@ func Guide(cfg Config, sources map[string]string) (AuthGuide, error) {
 			"For a multi-tenant backend also set --tenant <id>, which is sent as X-Scope-OrgID.",
 		}
 		g.DocumentationURL = "https://prometheus.io/docs/prometheus/latest/querying/api/"
+	}
+	if cfg.ReuseStep != "" {
+		g.Instructions = append([]string{"This machine may already hold a login for this service, under this or another scheme. Before signing in, run `" + cfg.ReuseStep + "`: it verifies a stored login and points this context at it. No secret is copied."}, g.Instructions...)
+		g.NextSteps = append([]string{cfg.ReuseStep}, g.NextSteps...)
 	}
 	if cfg.Auth.CredentialURL != "" {
 		g.CredentialURL = cfg.Auth.CredentialURL
