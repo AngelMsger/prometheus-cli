@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-27
+
 ### Changed
 
 - `auth reuse` looks past the destination's own scheme. A context without a
@@ -30,6 +32,7 @@ All notable changes to this project are documented here. The format follows
 - `config set-context`, `auth guide`, missing-credential errors, `doctor` and
   HTTP 401 errors list `auth reuse` before any sign-in step when the
   configuration file shows that a stored login could apply.
+- Update the companion Skill to `0.1.5` for `auth reuse`.
 
 ### Added
 
@@ -224,7 +227,8 @@ sibling `openobserve-cli` / `jenkins-cli` / `confluence-cli` / `bitbucket-cli` /
 - Base URLs ending in `/api/v1` are trimmed back to the server root at both the
   client and the persistence boundary.
 
-[Unreleased]: https://github.com/AngelMsger/prometheus-cli/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/AngelMsger/prometheus-cli/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/AngelMsger/prometheus-cli/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/AngelMsger/prometheus-cli/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/AngelMsger/prometheus-cli/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/AngelMsger/prometheus-cli/compare/v0.2.0...v0.3.0
