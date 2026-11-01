@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `pkg/apiclient` exports `Reader` and `Writer`; `Client` is now their union,
+  with the same method set and signatures as before.
+
+### Changed
+
+- The read-only wrapper keeps the inner client only as a `Reader` and blocks
+  each `Writer` method (the TSDB admin API) itself, so a write added without a
+  blocking override fails to compile instead of reaching Prometheus in a
+  read-only session. No CLI behavior, output or error changes.
+
 ## [0.5.0] - 2026-10-27
 
 ### Changed

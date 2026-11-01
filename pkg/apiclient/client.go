@@ -25,10 +25,20 @@ import (
 	"github.com/angelmsger/prometheus-cli/pkg/transport"
 )
 
-// Client is the Prometheus API surface used by the CLI. Everything except the
-// three admin methods is a read; the admin methods mutate the TSDB and are
-// gated by the read-only wrapper.
+// Client is the Prometheus API surface used by the CLI. It is the union of
+// Reader and Writer, so every method is classified as one or the other;
+// NewReadOnly relies on that split.
 type Client interface {
+	Reader
+	Writer
+}
+
+// Reader is the part of Client that never changes server state: queries
+// (including the ones sent as POST form bodies), discovery, targets, rules,
+// alerts, status and connectivity probes. The read-only wrapper delegates
+// exactly this interface, so a method that can mutate Prometheus must never be
+// declared here.
+type Reader interface {
 	// BaseURL returns the normalized Prometheus server root (no trailing slash).
 	BaseURL() string
 
@@ -73,7 +83,12 @@ type Client interface {
 	// Status returns one server status document (config, flags, runtimeinfo,
 	// buildinfo, tsdb, walreplay or notifications) as decoded JSON.
 	Status(ctx context.Context, topic string, query url.Values) (json.RawMessage, error)
+}
 
+// Writer is the part of Client that changes server state: the TSDB admin API.
+// The read-only wrapper (NewReadOnly) blocks each method explicitly, so adding
+// one here without its blocking override fails compilation.
+type Writer interface {
 	// DeleteSeries marks the samples matching the selectors as deleted.
 	DeleteSeries(ctx context.Context, req DeleteSeriesRequest) error
 	// CleanTombstones removes the deleted blocks from disk.

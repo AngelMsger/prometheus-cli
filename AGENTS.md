@@ -117,9 +117,12 @@ that lists values of that kind.
 ## When extending
 
 New write commands must: add `--dry-run` (emitting a plan built from the same
-request builder as the call), require `--yes` when destructive, route through
-`apiclient.NewReadOnly` (override the new method to return `READONLY_BLOCKED`),
-and keep the `{items,next,has_more}` + structured-error contract.
+request builder as the call), require `--yes` when destructive, declare the new
+client method on `Writer` (never `Reader`) and override it in `readonly.go` to
+return `READONLY_BLOCKED` (the build fails until you do), and keep the
+`{items,next,has_more}` + structured-error contract. A new read goes on
+`Reader`; `TestReadOnlyDelegatesEveryRead` fails until its delegation case is
+added.
 
 **Keep the companion Skill in sync — it is the agent-facing source of truth.**
 Any new command, subcommand, flag, or alias must be reflected in the embedded
