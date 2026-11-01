@@ -24,7 +24,8 @@ trap cleanup EXIT
 # Build and start the mock server (build to a binary so the trap can kill the
 # actual server process — `go run` would leave its compiled child orphaned).
 go build -o "$TMP/mockserver" "$ROOT/test/mockserver"
-"$TMP/mockserver" "$ADDR" 2>"$TMP/mock.log" &
+WRITE_LOG="$TMP/writes.log"
+MOCK_WRITE_LOG="$WRITE_LOG" "$TMP/mockserver" "$ADDR" 2>"$TMP/mock.log" &
 MOCK_PID=$!
 
 # Wait for it to accept connections.
@@ -186,21 +187,48 @@ pass=$((pass + 1))
 check "delete-series executes with --yes" '"deleted": true' -- run admin delete-series --match up --yes
 check "snapshot executes"                 '"name"'          -- run admin snapshot
 
-set +e
-PROMETHEUS_CLI_READ_ONLY=1 run admin delete-series --match up --yes >/dev/null 2>&1; code=$?
-set -e
-if [[ "$code" -ne 5 ]]; then
-  echo "FAIL - read-only write should exit 5, got $code"; exit 1
-fi
-echo "ok   - read-only blocks admin delete-series (exit 5)"
-pass=$((pass + 1))
+# Read-only mode blocks every admin write with READONLY_BLOCKED and exit code 5
+# (permission) before any request is sent. Reads still run (queries are POSTed
+# too), and the mock server's admin write log must stay empty until the first
+# --allow-writes call.
+: >"$WRITE_LOG"
+ro_blocks() { # ro_blocks <label> <command args...>
+  local label="$1"; shift
+  local err code
+  set +e
+  err="$(PROMETHEUS_CLI_READ_ONLY=1 run "$@" 2>&1 >/dev/null)"; code=$?
+  set -e
+  if [[ "$code" -ne 5 ]] || ! grep -q '"code": "READONLY_BLOCKED"' <<<"$err"; then
+    echo "FAIL - read-only blocks $label (exit $code)"; echo "$err" | head -5; exit 1
+  fi
+  echo "ok   - read-only blocks $label (exit 5)"
+  pass=$((pass + 1))
+}
+ro_blocks "admin delete-series"    admin delete-series --match up --yes
+ro_blocks "admin clean-tombstones" admin clean-tombstones --yes
+ro_blocks "admin snapshot"         admin snapshot
 
 check "read-only still previews" '"dry_run": true' -- \
   env PROMETHEUS_CLI_READ_ONLY=1 PROMETHEUS_CLI_NO_UPDATE_NOTIFIER=1 \
       "$BIN" --config "$TMP" admin delete-series --match up --dry-run
+check "read-only still queries" '"result_type": "vector"' -- \
+  env PROMETHEUS_CLI_READ_ONLY=1 PROMETHEUS_CLI_NO_UPDATE_NOTIFIER=1 \
+      "$BIN" --config "$TMP" query instant --query up
+if [[ -s "$WRITE_LOG" ]]; then
+  echo "FAIL - read-only sent no write request (server saw: $(tr '\n' ';' <"$WRITE_LOG"))"; exit 1
+fi
+echo "ok   - read-only sent no write request"
+pass=$((pass + 1))
+
 check "allow-writes overrides read-only" '"deleted": true' -- \
   env PROMETHEUS_CLI_READ_ONLY=1 PROMETHEUS_CLI_NO_UPDATE_NOTIFIER=1 \
       "$BIN" --config "$TMP" --allow-writes admin delete-series --match up --yes
+if grep -qx "POST /api/v1/admin/tsdb/delete_series" "$WRITE_LOG"; then
+  echo "ok   - write log records --allow-writes requests"
+  pass=$((pass + 1))
+else
+  echo "FAIL - write log records --allow-writes requests"; exit 1
+fi
 
 set +e
 out="$(run admin clean-tombstones --yes 2>&1 >/dev/null)"; code=$?

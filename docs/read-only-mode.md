@@ -91,12 +91,18 @@ Two things to keep in mind:
 
 ## How it is enforced
 
-`apiclient.NewReadOnly` wraps the client and overrides the three mutating
-methods to return `READONLY_BLOCKED`. Reads pass straight through. Because the
+`apiclient.Client` is the union of two interfaces: `Reader` (queries,
+discovery, targets, rules, alerts, status, probes) and `Writer` (the three TSDB
+admin methods). `apiclient.NewReadOnly` keeps the real client only as a
+`Reader`, so reads pass straight through and no write can be forwarded; it
+implements each `Writer` method itself to return `READONLY_BLOCKED`. Because the
 gate lives in the client rather than in each command, a new write command
-cannot forget it: it gets one override in
-[`pkg/apiclient/readonly.go`](../pkg/apiclient/readonly.go) and nothing else
-changes.
+cannot forget it: its method goes on `Writer`, and until it has an override in
+[`pkg/apiclient/readonly.go`](../pkg/apiclient/readonly.go) the build fails
+(`var _ Client = (*readOnlyClient)(nil)`). Nothing else changes.
+
+Queries go out as POST too (see technical-design.md), so the split is by what a
+method does, never by its HTTP method.
 
 The HTTP transport also never retries a non-idempotent request, so a write is
 sent at most once even when the server is returning 503s.

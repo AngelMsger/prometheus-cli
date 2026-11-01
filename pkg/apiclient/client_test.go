@@ -246,37 +246,6 @@ func TestDeleteSeriesRequiresASelector(t *testing.T) {
 	}
 }
 
-func TestReadOnlyBlocksEveryWrite(t *testing.T) {
-	t.Parallel()
-	client, _ := newTestClient(t, serveData(`{}`))
-	ro := NewReadOnly(client)
-	ctx := context.Background()
-
-	checks := []struct {
-		name string
-		err  error
-	}{
-		{"delete", ro.DeleteSeries(ctx, DeleteSeriesRequest{Match: []string{"up"}})},
-		{"clean", ro.CleanTombstones(ctx)},
-	}
-	if _, err := ro.Snapshot(ctx, false); true {
-		checks = append(checks, struct {
-			name string
-			err  error
-		}{"snapshot", err})
-	}
-	for _, c := range checks {
-		ce := cerrors.AsCLIError(c.err)
-		if ce.Code != "READONLY_BLOCKED" || cerrors.ExitCode(ce) != cerrors.ExitPermission {
-			t.Errorf("%s: got %+v", c.name, ce)
-		}
-	}
-	// Reads must still pass straight through the wrapper.
-	if _, err := ro.Status(ctx, "flags", nil); err != nil {
-		t.Fatalf("read blocked by the read-only wrapper: %v", err)
-	}
-}
-
 // Pasting the API endpoint instead of the server root is the most common setup
 // mistake; trimming it turns a guaranteed 404 into a working client.
 func TestNormalizeBaseURL(t *testing.T) {

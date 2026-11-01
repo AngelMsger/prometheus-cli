@@ -297,12 +297,18 @@ context edit never costs a stored credential and a delete keeps any secret
 another context still resolves.
 
 - `go test ./...` — unit tests, including the normalization, error
-  classification, step derivation and credential contracts, plus
+  classification, step derivation and credential contracts; the read-only
+  tests, whose tables are checked against the `Writer` and `Reader` method sets
+  (every write must return `READONLY_BLOCKED` naming its operation without a
+  request; every read must reach the inner client with the same arguments and
+  return its results unchanged); plus
   `skill_examples_test.go`, which executes the shell example embedded in the
   Skill's error reference against stubs at every documented exit code.
 - `./scripts/e2e.sh` — the built binary against `test/mockserver`, asserting the
-  agent-facing contract end to end: output shapes, exit codes, write gating,
-  the bearer + path-routed base URL path, and the Skill handshake.
+  agent-facing contract end to end: output shapes, exit codes, write gating
+  (every admin command under read-only, with the mock server's admin write log,
+  `MOCK_WRITE_LOG`, empty until the first `--allow-writes` call), the bearer +
+  path-routed base URL path, and the Skill handshake.
 - `./scripts/e2e-setup.sh` — team distribution with no network and no access to
   personal state.
 

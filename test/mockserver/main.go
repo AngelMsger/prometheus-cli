@@ -7,6 +7,10 @@
 // Prometheus, and behind a /secured prefix that requires a bearer token,
 // mirroring a path-routed gateway. That lets the e2e suite cover both auth
 // postures — and a base URL carrying a path — against one process.
+//
+// When MOCK_WRITE_LOG names a file, every request to the TSDB admin API (the
+// only endpoints that change server state; queries are POSTed too, so the
+// method alone does not say) is appended to it.
 package main
 
 import (
@@ -15,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 )
 
 // secureToken is the bearer token the /secured prefix demands.
@@ -27,12 +32,48 @@ func main() {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", route)
+	var handler http.Handler = mux
+	if path := os.Getenv("MOCK_WRITE_LOG"); path != "" {
+		handler = logWrites(handler, path)
+	}
 
 	fmt.Fprintf(os.Stderr, "mockserver listening on %s\n", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+// logWrites appends "METHOD PATH" to the file at path for every admin API
+// request, so scripts/e2e.sh can assert that read-only mode let no write reach
+// the server. A request that cannot be logged fails with 500 rather than going
+// unrecorded.
+func logWrites(next http.Handler, path string) http.Handler {
+	var mu sync.Mutex
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/api/v1/admin/") {
+			mu.Lock()
+			err := appendLine(path, r.Method+" "+r.URL.Path)
+			mu.Unlock()
+			if err != nil {
+				http.Error(w, "mockserver: write log failed: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func appendLine(path, line string) error {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(f, line); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 func route(w http.ResponseWriter, r *http.Request) {
