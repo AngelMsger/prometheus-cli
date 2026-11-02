@@ -20,11 +20,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
-- `--verbose` now logs through agent-cli-kit's transport: each HTTP request's
-  method, URL and status (or error) on stderr, for every command and now also
-  the login check. The line changes from `> METHOD URL` to
-  `METHOD URL -> STATUS`. The parse-error guidance no longer says
-  `--verbose` shows raw content; it shows each request's URL and status.
+- `--verbose` now logs through agent-cli-kit's transport: one line per request
+  to the server, `METHOD URL -> STATUS` or `METHOD URL -> error: ...`, on
+  stderr, for every command and now also the login check. It used to print
+  `> METHOD URL` before each request. The parse-error guidance no longer says
+  `--verbose` shows raw content; it shows each request's URL and status. The
+  release check, which asks for a newer version, is not logged.
 
 ## [0.5.0] - 2026-10-27
 
