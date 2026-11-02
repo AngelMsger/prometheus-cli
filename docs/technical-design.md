@@ -88,7 +88,8 @@ Prometheus returns one envelope from every `/api/v1` endpoint:
 A query success must also carry an answer: data that names no `resultType`, or
 has no `result`, fails as `DECODE` (parse) in `normalizeQuery` rather than
 reading as an empty result. An empty or explicit `null` vector or matrix is a
-valid empty answer, and an undocumented result type passes through as written.
+valid empty answer. An undocumented result type that carries a result is kept:
+the reply names that type and its stats, with no series.
 openobserve-cli applies the same rule to its PromQL replies, under the code
 `PROMQL_RESPONSE_INVALID`.
 
