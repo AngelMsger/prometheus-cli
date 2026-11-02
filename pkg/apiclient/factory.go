@@ -1,6 +1,7 @@
 package apiclient
 
 import (
+	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -16,11 +17,13 @@ type BuildParams struct {
 	// AuthDecorator authenticates every request. It may be nil: a bare
 	// Prometheus commonly has no authentication at all.
 	AuthDecorator transport.Decorator
-	// Decorators are applied after the auth decorator (verbose logging, tenant
-	// headers).
+	// Decorators are applied after the auth decorator, e.g. extra headers.
 	Decorators []transport.Decorator
 	Timeout    time.Duration
 	MaxRetries int
+	// Verbose, when non-nil, receives the --verbose request log: one line per
+	// request with its method, URL and status, never headers or bodies.
+	Verbose    io.Writer
 	OnAdvisory func(Advisory)
 }
 
@@ -48,6 +51,7 @@ func BuildClient(p BuildParams) (Client, error) {
 		Timeout:    p.Timeout,
 		MaxRetries: p.MaxRetries,
 		Decorators: decorators,
+		Verbose:    p.Verbose,
 	})
 	return New(Config{BaseURL: base, Transport: tc, OnAdvisory: p.OnAdvisory}), nil
 }

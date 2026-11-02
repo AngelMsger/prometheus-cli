@@ -3,8 +3,7 @@ package app
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net/http"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -14,7 +13,6 @@ import (
 	"github.com/angelmsger/prometheus-cli/internal/config"
 	"github.com/angelmsger/prometheus-cli/pkg/apiclient"
 	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
-	"github.com/angelmsger/prometheus-cli/pkg/transport"
 )
 
 // globalFlags holds the persistent flags shared by every command.
@@ -96,16 +94,12 @@ func (s *appState) newClient() (apiclient.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	var extra []transport.Decorator
-	if s.gflags.verbose {
-		extra = append(extra, verboseDecorator)
-	}
 	client, err := apiclient.BuildClient(apiclient.BuildParams{
 		BaseURL:       cfg.BaseURL,
 		AuthDecorator: cred.Decorator(),
-		Decorators:    extra,
 		Timeout:       cfg.Defaults.Timeout,
 		MaxRetries:    cfg.Defaults.MaxRetries,
+		Verbose:       s.verboseLog(),
 		OnAdvisory:    emitAPIAdvisory,
 	})
 	if err != nil {
@@ -132,9 +126,12 @@ func emitAPIAdvisory(advisory apiclient.Advisory) {
 	}})
 }
 
-// verboseDecorator logs each outgoing request line to stderr.
-func verboseDecorator(req *http.Request) {
-	fmt.Fprintf(os.Stderr, "> %s %s\n", req.Method, req.URL.Redacted())
+// verboseLog is where --verbose writes its request log, or nil without it.
+func (s *appState) verboseLog() io.Writer {
+	if s.gflags.verbose {
+		return os.Stderr
+	}
+	return nil
 }
 
 // readOnly reports whether the effective posture for this invocation is

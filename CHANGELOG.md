@@ -18,6 +18,14 @@ All notable changes to this project are documented here. The format follows
   blocking override fails to compile instead of reaching Prometheus in a
   read-only session. No CLI behavior, output or error changes.
 
+### Fixed
+
+- `--verbose` now logs through agent-cli-kit's transport: each HTTP request's
+  method, URL and status (or error) on stderr, for every command and now also
+  the login check. The line changes from `> METHOD URL` to
+  `METHOD URL -> STATUS`. The parse-error guidance no longer says
+  `--verbose` shows raw content; it shows each request's URL and status.
+
 ## [0.5.0] - 2026-10-27
 
 ### Changed

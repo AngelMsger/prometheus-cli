@@ -59,6 +59,20 @@ check() { # check <label> <expected-substr> -- <command...>
 
 # --- query: the core surface -------------------------------------------------
 check "query instant"          '"result_type": "vector"'   -- run query instant --query up
+# --verbose logs one line per request (method, URL, status) on stderr: never on
+# stdout, which stays data, and never a header.
+verbose_out="$(run --verbose query instant --query up 2>"$TMP/verbose.err")"
+if grep -Eq '^[A-Z]+ http://[^ ]+ -> 200$' "$TMP/verbose.err" &&
+  grep -q '"result_type": "vector"' <<<"$verbose_out" && ! grep -q ' -> 200' <<<"$verbose_out" &&
+  ! grep -qiE 'authorization|bearer |basic ' "$TMP/verbose.err"; then
+  echo "ok   - --verbose logs each request on stderr only"
+  pass=$((pass + 1))
+else
+  echo "FAIL - --verbose logs each request on stderr only"
+  head -5 "$TMP/verbose.err"
+  exit 1
+fi
+check "--verbose doctor logs its requests" ' -> 200' -- sh -c "\"$BIN\" --config \"$TMP\" --verbose doctor --no-update-check 2>&1 >/dev/null"
 check "instant sample decoded" '"value": "1"'              -- run query instant --query up
 check "instant time rendered"  '"time": "2025-09-20T'      -- run query instant --query up
 check "series count"           '"series_count": 2'         -- run query instant --query up
