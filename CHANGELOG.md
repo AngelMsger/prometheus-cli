@@ -18,6 +18,13 @@ All notable changes to this project are documented here. The format follows
   blocking override fails to compile instead of reaching Prometheus in a
   read-only session. No CLI behavior, output or error changes.
 
+### Fixed
+
+- `query instant` and `query range` reject a success reply whose data names no
+  `resultType` or carries no `result`, with `DECODE` (parse, exit 10). Such a
+  reply, from a proxy or a partly compatible backend, used to read as an empty
+  result. An empty or `null` vector or matrix is still an empty answer.
+
 ## [0.5.0] - 2026-10-27
 
 ### Changed
