@@ -156,6 +156,7 @@ func verifyCredentialWithin(parent context.Context, s *appState, cfg config.Conf
 		AuthDecorator: cred.Decorator(),
 		Timeout:       s.timeout(),
 		MaxRetries:    cfg.Defaults.MaxRetries,
+		Verbose:       s.verboseLog(),
 	})
 	if err != nil {
 		return err
