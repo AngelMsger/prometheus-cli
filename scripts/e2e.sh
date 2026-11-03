@@ -61,14 +61,16 @@ check() { # check <label> <expected-substr> -- <command...>
 check "query instant"          '"result_type": "vector"'   -- run query instant --query up
 # --verbose logs one line per request (method, URL, status) on stderr: never on
 # stdout, which stays data, and never a header.
-verbose_out="$(run --verbose query instant --query up 2>"$TMP/verbose.err")"
-if grep -Eq '^[A-Z]+ http://[^ ]+ -> 200$' "$TMP/verbose.err" &&
+verbose_out="$(PROMETHEUS_URL="http://verbose-user:e2e-url-secret@${URL#http://}" run --verbose query instant --query up 2>"$TMP/verbose.err")"
+if grep -Eq '^[A-Z]+ http://verbose-user:xxxxx@[^ ]+ -> 200$' "$TMP/verbose.err" &&
   grep -q '"result_type": "vector"' <<<"$verbose_out" && ! grep -q ' -> 200' <<<"$verbose_out" &&
+  ! grep -qF 'e2e-url-secret' "$TMP/verbose.err" &&
+  ! grep -qF 'e2e-url-secret' <<<"$verbose_out" &&
   ! grep -qiE 'authorization|bearer |basic ' "$TMP/verbose.err"; then
-  echo "ok   - --verbose logs each request on stderr only"
+  echo "ok   - --verbose logs on stderr only and masks the URL password"
   pass=$((pass + 1))
 else
-  echo "FAIL - --verbose logs each request on stderr only"
+  echo "FAIL - --verbose logs on stderr only and masks the URL password"
   head -5 "$TMP/verbose.err"
   exit 1
 fi

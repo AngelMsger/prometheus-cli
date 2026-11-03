@@ -20,6 +20,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Mask passwords embedded in the server URL in `--verbose` request logs by
+  pinning agent-cli-kit's merged transport fix (`8e0dd08af52d`).
+
 - `--verbose` now logs through agent-cli-kit's transport: one line per request
   to the server, `METHOD URL -> STATUS` or `METHOD URL -> error: ...`, on
   stderr, for every command and now also the login check. It used to print
