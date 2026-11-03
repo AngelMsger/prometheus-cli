@@ -3,6 +3,7 @@ package apiclient
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"sort"
@@ -172,6 +173,15 @@ func normalizeQuery(promql string, env *envelope) (*QueryResult, error) {
 	if err := decodeInto(env, &payload); err != nil {
 		return nil, err
 	}
+	// A success that names no result type or carries no result is not an
+	// answer, and read as one it would be an empty result: a confident wrong
+	// answer. An explicit null vector or matrix is still an empty one.
+	switch {
+	case payload.ResultType == "":
+		return nil, decodeError(env.Data, errors.New("its data names no resultType"))
+	case len(payload.Result) == 0:
+		return nil, decodeError(env.Data, fmt.Errorf("its %s data has no result", payload.ResultType))
+	}
 
 	out := &QueryResult{
 		Query:      promql,
@@ -191,7 +201,7 @@ func normalizeQuery(promql string, env *envelope) (*QueryResult, error) {
 		if sample != nil {
 			out.Series = append(out.Series, Series{Value: sample})
 		}
-	case "vector", "matrix", "":
+	case "vector", "matrix":
 		series, err := decodeSeriesList(payload.Result)
 		if err != nil {
 			return nil, err

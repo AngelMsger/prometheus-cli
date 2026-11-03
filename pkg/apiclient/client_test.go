@@ -100,6 +100,43 @@ func TestQueryNormalizesScalarResults(t *testing.T) {
 	}
 }
 
+// A success that names no result type or carries no result is not an answer;
+// read as one it would be an empty result, so it fails. An empty or null
+// vector is still a valid empty answer, and an undocumented type passes through.
+func TestQueryRejectsASuccessWithoutAResult(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		data string
+		ok   bool
+	}{
+		{`{}`, false},
+		{`{"result":[]}`, false},
+		{`{"resultType":"vector"}`, false},
+		{`{"resultType":"matrix"}`, false},
+		{`{"resultType":"scalar"}`, false},
+		{`{"resultType":"string"}`, false},
+		{`{"resultType":"future"}`, false},
+		{`{"resultType":"vector","result":{}}`, false},
+		{`{"resultType":"scalar","result":null}`, false},
+		{`{"resultType":"vector","result":[]}`, true},
+		{`{"resultType":"vector","result":null}`, true},
+		{`{"resultType":"matrix","result":null}`, true},
+		{`{"resultType":"future","result":{}}`, true},
+	} {
+		client, _ := newTestClient(t, serveData(tc.data))
+		got, err := client.Query(context.Background(), InstantRequest{Query: "up"})
+		if tc.ok {
+			if err != nil || got.SeriesCount != 0 {
+				t.Errorf("%s: want an empty answer, got %+v, %v", tc.data, got, err)
+			}
+			continue
+		}
+		if ce := cerrors.AsCLIError(err); ce == nil || ce.Code != "DECODE" || cerrors.ExitCode(ce) != 10 {
+			t.Errorf("%s: want DECODE (exit 10), got %v", tc.data, err)
+		}
+	}
+}
+
 // Native histogram samples carry an object instead of a float; keeping the body
 // verbatim means nothing the server sent is lost.
 func TestQueryKeepsNativeHistogramSamples(t *testing.T) {

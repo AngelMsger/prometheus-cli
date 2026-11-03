@@ -69,9 +69,11 @@ These are the places where an "obvious" change would be wrong. They are
 enforced by tests; read the reason before altering them.
 
 - **An empty result is a valid answer, and a dangerous one.** Prometheus answers
-  an unmatched query with `{"status":"success","data":{"result":[]}}`. Never
+  an unmatched query with
+  `{"status":"success","data":{"resultType":"vector","result":[]}}`. Never
   turn that into an error. But never let a misconfiguration produce one either:
-  a 200 without the envelope is `NOT_PROMETHEUS_API`, and a missing `--tenant`
+  a 200 without the envelope is `NOT_PROMETHEUS_API`, a success whose data
+  names no `resultType` or has no `result` is `DECODE`, and a missing `--tenant`
   on a multi-tenant backend silently empties every result — which is why the
   tenant is a distributed service preset, not a per-person setting.
 - **`none` is a real auth scheme, and the default.** Prometheus has no accounts.
