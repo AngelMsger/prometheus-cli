@@ -32,11 +32,11 @@ A blocked write fails with a structured error and exit code 5 (`permission`):
   "error": {
     "category": "permission",
     "code": "READONLY_BLOCKED",
-    "message": "refusing to delete series: read-only mode is enabled",
+    "message": "operation \"delete series\" blocked: read-only mode is enabled",
+    "hint": "Read-only mode is on, so nothing was sent. The user turned it on (PROMETHEUS_CLI_READ_ONLY or defaults.read_only in ~/.angelmsger/prometheus/config.yaml), and only the user turns it off. --allow-writes lifts it for one invocation and is for a write the user authorized.",
     "next_steps": [
       "Add --dry-run to preview the request without sending it",
-      "Add --allow-writes to override read-only mode for this command",
-      "unset PROMETHEUS_CLI_READ_ONLY / set defaults.read_only=false to disable it"
+      "Only if the user authorized this write, re-run with --allow-writes"
     ]
   }
 }

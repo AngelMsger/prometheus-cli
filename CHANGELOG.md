@@ -17,6 +17,14 @@ All notable changes to this project are documented here. The format follows
   each `Writer` method (the TSDB admin API) itself, so a write added without a
   blocking override fails to compile instead of reaching Prometheus in a
   read-only session. No CLI behavior, output or error changes.
+- `READONLY_BLOCKED` uses agent-cli-kit v0.6.0's shared wording: the message
+  reads `operation "delete series" blocked: read-only mode is enabled`, the
+  hint says read-only mode is the user's setting, and the next steps are
+  `--dry-run` and, only for a write the user authorized, `--allow-writes`. They
+  no longer suggest unsetting `PROMETHEUS_CLI_READ_ONLY` or
+  `defaults.read_only`.
+- Prompts (`auth login`, `config init`) use agent-cli-kit's
+  `terminal.Prompter`; their wording is unchanged.
 
 ### Fixed
 

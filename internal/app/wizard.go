@@ -112,13 +112,13 @@ func runInitForm(def initValues) (initValues, error) {
 func runInitPrompts(def initValues) (initValues, error) {
 	v := def.withDefaults()
 	var err error
-	if v.baseURL, err = promptLine("Server URL", v.baseURL); err != nil {
+	if v.baseURL, err = prompter().Line("Server URL", v.baseURL); err != nil {
 		return v, err
 	}
-	if v.scheme, err = promptChoice("Auth scheme (none/bearer/basic)", config.Schemes(), v.scheme); err != nil {
+	if v.scheme, err = prompter().Choice("Auth scheme (none/bearer/basic)", config.Schemes(), v.scheme); err != nil {
 		return v, err
 	}
-	if v.tenant, err = promptLine("Tenant id (X-Scope-OrgID, blank for none)", v.tenant); err != nil {
+	if v.tenant, err = prompter().Line("Tenant id (X-Scope-OrgID, blank for none)", v.tenant); err != nil {
 		return v, err
 	}
 	if v.scheme == auth.SchemeNone {
@@ -134,11 +134,11 @@ func runInitPrompts(def initValues) (initValues, error) {
 	label := "Bearer token"
 	if v.scheme == auth.SchemeBasic {
 		label = "Password"
-		if v.username, err = promptLine("Username", v.username); err != nil {
+		if v.username, err = prompter().Line("Username", v.username); err != nil {
 			return v, err
 		}
 	}
-	if v.secret, err = promptSecret(label); err != nil {
+	if v.secret, err = prompter().Secret(label); err != nil {
 		return v, err
 	}
 	return v, nil

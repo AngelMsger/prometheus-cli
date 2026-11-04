@@ -65,7 +65,7 @@ func newAuthLoginCmd(s *appState) *cobra.Command {
 				return err
 			}
 			if scheme == auth.SchemeBasic && cred.Username == "" {
-				u, err := promptLine("Username", "")
+				u, err := prompter().Line("Username", "")
 				if err != nil {
 					return err
 				}
@@ -75,7 +75,7 @@ func newAuthLoginCmd(s *appState) *cobra.Command {
 			if scheme == auth.SchemeBasic {
 				secretLabel = "Password"
 			}
-			secret, err := promptSecret(secretLabel)
+			secret, err := prompter().Secret(secretLabel)
 			if err != nil {
 				return err
 			}
