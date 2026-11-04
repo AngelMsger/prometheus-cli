@@ -76,6 +76,14 @@ Prometheus returns one envelope from every `/api/v1` endpoint:
   classification: `bad_data` and `execution` become **usage** errors, because
   the caller's PromQL is at fault and retrying is pointless; `timeout`,
   `canceled` and `unavailable` become **server** errors, which are retryable.
+- **A 3xx.** The kit's transport follows a redirect only for a read that
+  the next hop sends unchanged. The query endpoints are posted (an expression
+  can be too long for a URL), so `postRead` marks them with
+  `transport.AsRead`: they are retried like a GET and follow a 307 or 308,
+  which sends the same form again. A 301, 302 or 303 would become a GET
+  without the query, and an admin write is never followed, so those come back
+  as `HTTP_<status>` (server, not retryable) with a hint on the URL, not as
+  `NOT_PROMETHEUS_API` for the login page behind them.
 - **A 404 on an `/admin/` path.** Translated to `ADMIN_API_DISABLED`
   (permission), because that is what it actually means — the server was started
   without `--web.enable-admin-api` — rather than "no such resource".

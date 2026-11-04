@@ -28,7 +28,7 @@ func (c *apiClient) Query(ctx context.Context, req InstantRequest) (*QueryResult
 		return nil, err
 	}
 
-	env, err := c.post(ctx, apiPath("/query"), form)
+	env, err := c.postRead(ctx, apiPath("/query"), form)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (c *apiClient) QueryRange(ctx context.Context, req RangeRequest) (*QueryRes
 		return nil, err
 	}
 
-	env, err := c.post(ctx, apiPath("/query_range"), form)
+	env, err := c.postRead(ctx, apiPath("/query_range"), form)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *apiClient) QueryExemplars(ctx context.Context, req ExemplarRequest) ([]
 	form.Set("start", timeutil.FormatInstant(req.Start))
 	form.Set("end", timeutil.FormatInstant(req.End))
 
-	env, err := c.post(ctx, apiPath("/query_exemplars"), form)
+	env, err := c.postRead(ctx, apiPath("/query_exemplars"), form)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (c *apiClient) QueryExemplars(ctx context.Context, req ExemplarRequest) ([]
 // FormatQuery returns a PromQL expression pretty-printed by the server, which
 // is also the cheapest way to confirm an expression parses.
 func (c *apiClient) FormatQuery(ctx context.Context, promql string) (string, error) {
-	env, err := c.post(ctx, apiPath("/format_query"), url.Values{"query": {promql}})
+	env, err := c.postRead(ctx, apiPath("/format_query"), url.Values{"query": {promql}})
 	if err != nil {
 		return "", err
 	}
@@ -152,7 +152,7 @@ func (c *apiClient) FormatQuery(ctx context.Context, promql string) (string, err
 
 // ParseQuery returns the server's abstract syntax tree for an expression.
 func (c *apiClient) ParseQuery(ctx context.Context, promql string) (json.RawMessage, error) {
-	env, err := c.post(ctx, apiPath("/parse_query"), url.Values{"query": {promql}})
+	env, err := c.postRead(ctx, apiPath("/parse_query"), url.Values{"query": {promql}})
 	if err != nil {
 		return nil, err
 	}

@@ -28,6 +28,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- A query behind a 307 or 308 redirect (for example http to https) is sent
+  again with its form, and a transient failure of a query is retried, as for
+  any read. The query endpoints are posted, and agent-cli-kit v0.7.0 follows
+  and retries a POST only when the CLI marks it as a read
+  (`transport.AsRead`), which the query, series and labels calls now do.
+- A redirect the client does not follow is reported as `HTTP_<status>`
+  (server, not retryable) with a hint to check the URL:
+  a query's 301, 302 or 303, which would turn it into a GET without the
+  query, and any redirect of an admin write, which is never sent again. It
+  used to be followed as a GET, so the login page behind it read as
+  `NOT_PROMETHEUS_API`, and a 307 sent the admin write again.
 - Mask passwords embedded in the server URL in `--verbose` request logs, with
   agent-cli-kit v0.6.0's transport.
 
