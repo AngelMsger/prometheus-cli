@@ -223,6 +223,15 @@ ro_blocks() { # ro_blocks <label> <command args...>
 ro_blocks "admin delete-series"    admin delete-series --match up --yes
 ro_blocks "admin clean-tombstones" admin clean-tombstones --yes
 ro_blocks "admin snapshot"         admin snapshot
+# Read-only mode is the user's setting: the error offers --allow-writes only for
+# an authorized write and never tells an agent to unset the switch.
+ro_err="$(PROMETHEUS_CLI_READ_ONLY=1 run admin snapshot 2>&1 >/dev/null || true)"
+if [[ "$ro_err" == *"Only if the user authorized this write"* && "$ro_err" != *"unset PROMETHEUS_CLI_READ_ONLY"* ]]; then
+  echo "ok   - read-only error leaves the switch to the user"
+  pass=$((pass + 1))
+else
+  echo "FAIL - read-only error leaves the switch to the user"; echo "$ro_err" | head -8; exit 1
+fi
 
 check "read-only still previews" '"dry_run": true' -- \
   env PROMETHEUS_CLI_READ_ONLY=1 PROMETHEUS_CLI_NO_UPDATE_NOTIFIER=1 \
