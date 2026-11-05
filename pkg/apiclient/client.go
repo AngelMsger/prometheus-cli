@@ -359,12 +359,22 @@ func (c *apiClient) httpError(status int, env *envelope, raw []byte, path string
 				"prometheus-cli metadata list --metric <name>",
 				"prometheus-cli labels values __name__ --since 1h")
 	case status >= 300 && status < 400:
+		hint := "Something in front of Prometheus redirected the request: usually a login " +
+			"page, a single sign-on proxy, or a --base-url that should use https or name the " +
+			"server root. The same request is redirected again, so check the URL first."
+		steps := []string{"prometheus-cli doctor", "prometheus-cli config get-contexts"}
+		if strings.Contains(path, "/admin/") {
+			// A proxy can pass an admin write on to Prometheus and then
+			// redirect, so the redirect does not show the write was refused.
+			hint += " The write may still have applied behind the redirect: check the TSDB " +
+				"before repeating it."
+			steps = append(steps, "Before repeating a delete-series, check its series with "+
+				"prometheus-cli series list --match '<selector>' over the same window.")
+		}
 		e := cerrors.New(cat, "HTTP_"+statusSlug(status), msg).
 			WithHTTPStatus(status).
-			WithHint("Something in front of Prometheus redirected the request: usually a login "+
-				"page, a single sign-on proxy, or a --base-url that should use https or name the "+
-				"server root. The same request is redirected again, so check the URL first.").
-			WithNextSteps("prometheus-cli doctor", "prometheus-cli config get-contexts")
+			WithHint(hint).
+			WithNextSteps(steps...)
 		e.Retryable = false
 		return e
 	default:

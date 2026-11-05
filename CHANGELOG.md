@@ -33,12 +33,19 @@ All notable changes to this project are documented here. The format follows
   any read. The query endpoints are posted, and agent-cli-kit v0.8.0 follows
   and retries a POST only when the CLI marks it as a read
   (`transport.AsRead`), which the query, series and labels calls now do.
-- A redirect the client does not follow is reported as `HTTP_<status>`
-  (server, not retryable) with a hint to check the URL:
-  a query's 301, 302 or 303, which would turn it into a GET without the
-  query, and any redirect of an admin write, which is never sent again. It
-  used to be followed as a GET, so the login page behind it read as
-  `NOT_PROMETHEUS_API`, and a 307 sent the admin write again.
+- A redirect the client does not follow is reported as itself:
+  `HTTP_<STATUS>` (server, exit 9, not retryable) with a hint to check the
+  URL. That is a query's 301, 302 or 303, which would turn it into a GET
+  without the query; any redirect of an admin write, which is never sent
+  again; and a redirect Go cannot follow, such as one without a `Location`.
+  An admin write's hint adds that the write may still have applied behind
+  the redirect, so check before repeating it. **Error codes change for these
+  responses:** 0.5.0 followed a query's redirect as a GET and failed on the
+  page behind it with a parse error (exit 10): `DECODE` for an HTML login
+  page, `NOT_PROMETHEUS_API` for an empty body or JSON without the
+  Prometheus envelope. A redirect without a `Location` failed the same way,
+  and a 307 or 308 sent an admin write again. A script that took exit 10 as
+  a wrong URL now gets exit 9 with `retryable: false` for a redirect.
 - Mask passwords embedded in the server URL in `--verbose` request logs, with
   agent-cli-kit v0.6.0's transport.
 

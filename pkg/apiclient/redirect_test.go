@@ -59,8 +59,8 @@ func TestPostedQueryFollowsAPreservingRedirect(t *testing.T) {
 
 // A 301, 302 or 303 would turn the posted query into a GET without the
 // query, so the client reports the redirect, with its status and a hint on
-// the URL, instead of following it. It used to say the answer was not
-// Prometheus (the login page it landed on).
+// the URL, instead of following it. Before, it was followed as a GET, and the
+// login page it landed on failed to decode.
 func TestPostedQueryRedirectIsReported(t *testing.T) {
 	for _, status := range []int{http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther} {
 		var bodyless int
@@ -68,20 +68,56 @@ func TestPostedQueryRedirectIsReported(t *testing.T) {
 		_, err := client.Query(context.Background(), InstantRequest{Query: "up"})
 		ce := cerrors.AsCLIError(err)
 		if ce == nil || ce.HTTPStatus != status || ce.Retryable || bodyless != 0 ||
-			!strings.Contains(ce.Hint, "redirected the request") {
+			!strings.Contains(ce.Hint, "redirected the request") || strings.Contains(ce.Hint, "may still have applied") {
 			t.Fatalf("%d: got %+v after %d bodyless requests; want the redirect reported", status, ce, bodyless)
 		}
 	}
 }
 
-// An admin write is never followed through a redirect, so its 302 comes back
-// as the redirect, not as a delete that a login page confirmed.
+// An admin write is never followed through a redirect, so its redirect comes
+// back as itself, not as a delete that a login page confirmed. A proxy can
+// pass the write on before it redirects, so the hint says the write may have
+// applied and is checked before it is repeated.
 func TestAdminWriteRedirectIsReported(t *testing.T) {
-	var bodyless int
-	client := newRedirectedClient(t, redirectingServer(http.StatusTemporaryRedirect, &bodyless))
-	err := client.DeleteSeries(context.Background(), DeleteSeriesRequest{Match: []string{`up{job="x"}`}})
+	writes := map[string]func(Client) error{
+		"delete series": func(c Client) error {
+			return c.DeleteSeries(context.Background(), DeleteSeriesRequest{Match: []string{`up{job="x"}`}})
+		},
+		"clean tombstones": func(c Client) error { return c.CleanTombstones(context.Background()) },
+		"snapshot": func(c Client) error {
+			_, err := c.Snapshot(context.Background(), false)
+			return err
+		},
+	}
+	for name, write := range writes {
+		for _, status := range []int{http.StatusFound, http.StatusTemporaryRedirect} {
+			var bodyless int
+			client := newRedirectedClient(t, redirectingServer(status, &bodyless))
+			ce := cerrors.AsCLIError(write(client))
+			if ce == nil || ce.HTTPStatus != status || ce.Retryable || bodyless != 0 ||
+				!strings.Contains(ce.Hint, "may still have applied") {
+				t.Fatalf("%s %d: got %+v after %d requests at the target; want the redirect itself", name, status, ce, bodyless)
+			}
+		}
+	}
+}
+
+// Go cannot follow a redirect without a Location, even for a GET, so it
+// comes back as is and is reported as the redirect. 0.5.0 took its empty
+// body for a response that is not Prometheus (NOT_PROMETHEUS_API, exit 10).
+func TestRedirectWithoutLocationIsReported(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusFound)
+	}))
+	t.Cleanup(srv.Close)
+	client, err := BuildClient(BuildParams{BaseURL: srv.URL, Timeout: 5 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.BuildInfo(context.Background())
 	ce := cerrors.AsCLIError(err)
-	if ce == nil || ce.HTTPStatus != http.StatusTemporaryRedirect || ce.Retryable || bodyless != 0 {
-		t.Fatalf("got %+v after %d requests at the target; want the 307 itself", ce, bodyless)
+	if ce == nil || ce.Code != "HTTP_FOUND" || ce.Category != cerrors.CategoryServer || ce.Retryable ||
+		ce.HTTPStatus != http.StatusFound {
+		t.Fatalf("got %+v; want HTTP_FOUND, server, not retryable", ce)
 	}
 }
