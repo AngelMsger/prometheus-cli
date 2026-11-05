@@ -28,6 +28,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- `pkg/transport`, for a library caller that passes its own HTTP client
+  (`Options.Doer`): a read with a body (a `RetryMethods` verb, or a request
+  marked with agent-cli-kit's `transport.AsRead`) that the client turned into
+  a GET on a 301, 302 or 303 is answered by that redirect, not by the GET's
+  page, and a transient failure of that page no longer retries the read. This
+  is agent-cli-kit v0.8.1. The CLI's own client never follows such a redirect,
+  so the CLI's behavior is unchanged.
 - A query behind a 307 or 308 redirect (for example http to https) is sent
   again with its form, and a transient failure of a query is retried, as for
   any read. The query endpoints are posted, and agent-cli-kit v0.8.0 follows
