@@ -117,7 +117,8 @@ fi
   For an admin write, the write may still have applied behind the redirect:
   follow its hint. A `delete-series` stays unknown (a series list can still
   show deleted series): repeat it only if the user confirms, with the fixed
-  window from the `--dry-run` in `next_steps`.
+  window from the `--dry-run` in `next_steps`. When the hint says no repeat
+  is offered, there is none to run.
 - **`NOT_PROMETHEUS_API` (parse/10)** — a 200 response without the Prometheus
   envelope: `--base-url` points at something else (a dashboard, a login page, a
   catch-all proxy route). It must be the server root, not `/api/v1` and not a
