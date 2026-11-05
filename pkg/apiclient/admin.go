@@ -7,7 +7,6 @@ import (
 	"time"
 
 	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
-	"github.com/angelmsger/prometheus-cli/pkg/timeutil"
 )
 
 // The three TSDB admin endpoints. They are the only mutating calls in this
@@ -54,24 +53,29 @@ func (c *apiClient) DeleteSeries(ctx context.Context, req DeleteSeriesRequest) e
 
 // fixedWindowDeletePreview is the --dry-run of req with its window spelled
 // out, for a repeat the user confirms. A delete without a start reaches back
-// to the oldest sample, so it starts at the epoch (the CLI reads a bare 0 as
-// no time). A delete without an end reached up to the moment it ran, so the
-// preview ends at sent, truncated to the second: a repeat cannot reach
-// samples collected since the first attempt.
+// to the oldest sample, so it starts at the epoch. A delete without an end
+// reached up to the moment it ran, so the preview ends at sent, truncated to
+// the second: a repeat cannot reach samples collected since the first
+// attempt. Both instants are RFC3339, which --from and --to read as written;
+// an epoch number such as 0 would read as a zero look-back, that is now.
 func fixedWindowDeletePreview(req DeleteSeriesRequest, sent time.Time) string {
 	cmd := "prometheus-cli admin delete-series"
 	for _, m := range req.Match {
 		cmd += " --match " + cerrors.ShellArg(m)
 	}
-	from := "1970-01-01T00:00:00Z"
+	from := time.Unix(0, 0)
 	if !req.Start.IsZero() {
-		from = timeutil.FormatInstant(req.Start)
+		from = req.Start
 	}
 	to := sent.Truncate(time.Second)
 	if !req.End.IsZero() {
 		to = req.End
 	}
-	return cmd + " --from " + from + " --to " + timeutil.FormatInstant(to) + " --dry-run"
+	return cmd + " --from " + previewInstant(from) + " --to " + previewInstant(to) + " --dry-run"
+}
+
+func previewInstant(t time.Time) string {
+	return t.UTC().Format(time.RFC3339Nano)
 }
 
 // CleanTombstones removes deleted blocks from disk immediately.

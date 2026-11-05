@@ -157,7 +157,7 @@ it from stdin, which avoids shell-quoting a long PromQL expression.
 
 ## Agent-facing conventions
 
-- **Skill handshake — set `PROMETHEUS_CLI_SKILL=0.1.5`.** Once you have loaded
+- **Skill handshake — set `PROMETHEUS_CLI_SKILL=0.1.6`.** Once you have loaded
   this Skill, export that exact value in the environment used to run the CLI.
   The CLI compares it with the embedded Skill version and emits a structured
   stderr notice when the Skill is missing, old, or uses the legacy unversioned

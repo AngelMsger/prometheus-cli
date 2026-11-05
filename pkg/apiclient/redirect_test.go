@@ -4,12 +4,12 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
+	"github.com/angelmsger/prometheus-cli/pkg/timeutil"
 )
 
 // redirectingServer answers every request under /old with a redirect of
@@ -120,18 +120,23 @@ func TestAdminWriteRedirectIsReported(t *testing.T) {
 // command offered is a --dry-run preview with the window fixed: from the
 // delete's start (or the epoch) to its end, or, for a delete without one, to
 // the moment of this attempt, so a repeat the user confirms cannot reach
-// samples collected since.
+// samples collected since. Its --from and --to read back as exactly that
+// window; an explicit epoch start used to come out as "0", which --from
+// reads as now.
 func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 	start, end := time.Unix(1700000000, 0), time.Unix(1700003600, 0)
+	before := time.Now().Truncate(time.Second)
 	for _, tc := range []struct {
-		name   string
-		req    DeleteSeriesRequest
-		window string
+		name     string
+		req      DeleteSeriesRequest
+		from, to time.Time
 	}{
-		{"with a window", DeleteSeriesRequest{Match: []string{`up{job="x"}`, "down"}, Start: start, End: end},
-			"--from 1700000000 --to 1700003600"},
-		{"up to an end", DeleteSeriesRequest{Match: []string{"up"}, End: end},
-			"--from 1970-01-01T00:00:00Z --to 1700003600"},
+		{"with a window", DeleteSeriesRequest{Match: []string{`up{job="x"}`, "down"}, Start: start, End: end}, start, end},
+		{"up to an end", DeleteSeriesRequest{Match: []string{"up"}, End: end}, time.Unix(0, 0), end},
+		{"from the epoch", DeleteSeriesRequest{Match: []string{"up"}, Start: time.Unix(0, 0), End: end}, time.Unix(0, 0), end},
+		{"from a fraction of a second", DeleteSeriesRequest{Match: []string{"up"}, Start: start.Add(250 * time.Millisecond), End: end},
+			start.Add(250 * time.Millisecond), end},
+		{"without an end", DeleteSeriesRequest{Match: []string{"up"}, Start: start}, start, time.Time{}},
 	} {
 		var bodyless int
 		client := newRedirectedClient(t, redirectingServer(http.StatusFound, &bodyless))
@@ -140,32 +145,34 @@ func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 			!strings.Contains(ce.Hint, "only if the user confirms") {
 			t.Fatalf("%s: got %+v; want an unknown outcome that a repeat needs the user for", tc.name, ce)
 		}
-		preview := ce.NextSteps[len(ce.NextSteps)-1]
-		matches := ""
-		for _, m := range tc.req.Match {
-			matches += " --match " + cerrors.ShellArg(m)
-		}
-		if preview != "prometheus-cli admin delete-series"+matches+" "+tc.window+" --dry-run" {
-			t.Fatalf("%s: last step %q; want a dry run with the fixed window %q", tc.name, preview, tc.window)
-		}
 		for _, step := range ce.NextSteps {
 			if strings.Contains(step, "series list") || strings.Contains(step, "--yes") {
 				t.Fatalf("%s: step %q reads the outcome or repeats the delete", tc.name, step)
 			}
 		}
-	}
-
-	// Without an end, the fixed window ends at the attempt.
-	before := time.Now().Truncate(time.Second)
-	var bodyless int
-	client := newRedirectedClient(t, redirectingServer(http.StatusFound, &bodyless))
-	ce := cerrors.AsCLIError(client.DeleteSeries(context.Background(), DeleteSeriesRequest{Match: []string{"up"}}))
-	preview := ce.NextSteps[len(ce.NextSteps)-1]
-	_, to, ok := strings.Cut(strings.TrimSuffix(preview, " --dry-run"), " --to ")
-	sec, err := strconv.ParseInt(to, 10, 64)
-	if !ok || err != nil || sec < before.Unix() || sec > time.Now().Unix() ||
-		!strings.Contains(preview, "--from 1970-01-01T00:00:00Z") {
-		t.Fatalf("last step %q; want the window fixed at the attempt", preview)
+		preview := ce.NextSteps[len(ce.NextSteps)-1]
+		matches := ""
+		for _, m := range tc.req.Match {
+			matches += " --match " + cerrors.ShellArg(m)
+		}
+		rest, ok := strings.CutPrefix(preview, "prometheus-cli admin delete-series"+matches+" --from ")
+		fromArg, toArg, ok2 := strings.Cut(strings.TrimSuffix(rest, " --dry-run"), " --to ")
+		if !ok || !ok2 || !strings.HasSuffix(preview, " --dry-run") {
+			t.Fatalf("%s: last step %q; want a dry run of the same selectors with --from and --to", tc.name, preview)
+		}
+		now := time.Now()
+		from, err1 := timeutil.ParseInstant(fromArg, now)
+		to, err2 := timeutil.ParseInstant(toArg, now)
+		if err1 != nil || err2 != nil || !from.Equal(tc.from) {
+			t.Fatalf("%s: --from %q --to %q read as %v, %v (%v, %v); want from %v", tc.name, fromArg, toArg, from, to, err1, err2, tc.from)
+		}
+		if tc.to.IsZero() {
+			if to.Before(before) || to.After(now) {
+				t.Fatalf("%s: --to %q is %v; want the moment of the attempt", tc.name, toArg, to)
+			}
+		} else if !to.Equal(tc.to) {
+			t.Fatalf("%s: --to %q is %v; want %v", tc.name, toArg, to, tc.to)
+		}
 	}
 }
 
