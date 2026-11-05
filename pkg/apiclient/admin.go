@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
+	"github.com/angelmsger/prometheus-cli/pkg/timeutil"
 )
 
 // The three TSDB admin endpoints. They are the only mutating calls in this
@@ -38,7 +39,36 @@ func (c *apiClient) DeleteSeries(ctx context.Context, req DeleteSeriesRequest) e
 			WithNextSteps("prometheus-cli series list --match '<selector>' --since 1h")
 	}
 	_, err := c.post(ctx, apiPath(pathDeleteSeries), deleteSeriesForm(req))
+	if ce := cerrors.AsCLIError(err); ce != nil && ce.HTTPStatus >= 300 && ce.HTTPStatus < 400 {
+		// A redirect leaves the delete's outcome unknown (see httpError):
+		// its own series over its own window show whether it applied.
+		ce.NextSteps = append(ce.NextSteps, deletedSeriesCheck(req))
+		return ce
+	}
 	return err
+}
+
+// deletedSeriesCheck is the read that shows whether a delete applied: the
+// series its selectors match over its window, which a delete stops listing.
+func deletedSeriesCheck(req DeleteSeriesRequest) string {
+	cmd := "prometheus-cli series list"
+	for _, m := range req.Match {
+		cmd += " --match " + cerrors.ShellArg(m)
+	}
+	if req.Start.IsZero() && req.End.IsZero() {
+		return cmd
+	}
+	// Without a start the delete reaches back to the oldest sample. The
+	// CLI reads a bare 0 as no time, so the epoch is spelled out.
+	from := "1970-01-01T00:00:00Z"
+	if !req.Start.IsZero() {
+		from = timeutil.FormatInstant(req.Start)
+	}
+	cmd += " --from " + from
+	if !req.End.IsZero() {
+		cmd += " --to " + timeutil.FormatInstant(req.End)
+	}
+	return cmd
 }
 
 // CleanTombstones removes deleted blocks from disk immediately.

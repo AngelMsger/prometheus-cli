@@ -39,13 +39,19 @@ All notable changes to this project are documented here. The format follows
   without the query; any redirect of an admin write, which is never sent
   again; and a redirect Go cannot follow, such as one without a `Location`.
   An admin write's hint adds that the write may still have applied behind
-  the redirect, so check before repeating it. **Error codes change for these
-  responses:** 0.5.0 followed a query's redirect as a GET and failed on the
-  page behind it with a parse error (exit 10): `DECODE` for an HTML login
+  the redirect and how to tell: `delete-series` lists its own series over
+  its own window, `snapshot` points at the snapshots directory, and
+  `clean-tombstones` says repeating it is safe. **Error codes change for
+  these responses:** 0.5.0 followed a query's redirect as a GET and failed on
+  the page behind it with a parse error (exit 10): `DECODE` for an HTML login
   page, `NOT_PROMETHEUS_API` for an empty body or JSON without the
   Prometheus envelope. A redirect without a `Location` failed the same way,
-  and a 307 or 308 sent an admin write again. A script that took exit 10 as
-  a wrong URL now gets exit 9 with `retryable: false` for a redirect.
+  or, if its body carried a Prometheus envelope, succeeded or took the
+  envelope's error. A 307 or 308 sent an admin write again. A script that
+  took exit 10 as a wrong URL now gets exit 9 with `retryable: false` for a
+  redirect.
+- Update the companion Skill to `0.1.6`: a redirect is not retryable, and
+  the scripted error example reads `retryable` before retrying an exit 9.
 - Mask passwords embedded in the server URL in `--verbose` request logs, with
   agent-cli-kit v0.6.0's transport.
 

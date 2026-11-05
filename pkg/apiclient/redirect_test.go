@@ -77,26 +77,47 @@ func TestPostedQueryRedirectIsReported(t *testing.T) {
 // An admin write is never followed through a redirect, so its redirect comes
 // back as itself, not as a delete that a login page confirmed. A proxy can
 // pass the write on before it redirects, so the hint says the write may have
-// applied and is checked before it is repeated.
+// applied, and each write names the check that fits it: the deleted series
+// over the delete's own window, the snapshot directory, or that repeating a
+// clean-up is safe.
 func TestAdminWriteRedirectIsReported(t *testing.T) {
-	writes := map[string]func(Client) error{
-		"delete series": func(c Client) error {
-			return c.DeleteSeries(context.Background(), DeleteSeriesRequest{Match: []string{`up{job="x"}`}})
-		},
-		"clean tombstones": func(c Client) error { return c.CleanTombstones(context.Background()) },
-		"snapshot": func(c Client) error {
+	start, end := time.Unix(1700000000, 0), time.Unix(1700003600, 0)
+	writes := []struct {
+		name  string
+		write func(Client) error
+		hint  string
+		step  string
+	}{
+		{"delete series", func(c Client) error {
+			return c.DeleteSeries(context.Background(), DeleteSeriesRequest{
+				Match: []string{`up{job="x"}`, "down"}, Start: start, End: end})
+		}, "series still listed were not deleted",
+			`prometheus-cli series list --match 'up{job="x"}' --match 'down' --from 1700000000 --to 1700003600`},
+		{"delete series without a window", func(c Client) error {
+			return c.DeleteSeries(context.Background(), DeleteSeriesRequest{Match: []string{"up"}})
+		}, "series still listed were not deleted", `prometheus-cli series list --match 'up'`},
+		{"delete series up to an end", func(c Client) error {
+			return c.DeleteSeries(context.Background(), DeleteSeriesRequest{Match: []string{"up"}, End: end})
+		}, "series still listed were not deleted",
+			`prometheus-cli series list --match 'up' --from 1970-01-01T00:00:00Z --to 1700003600`},
+		{"clean tombstones", func(c Client) error { return c.CleanTombstones(context.Background()) },
+			"Repeating it is safe", ""},
+		{"snapshot", func(c Client) error {
 			_, err := c.Snapshot(context.Background(), false)
 			return err
-		},
+		}, "snapshots/", "prometheus-cli status flags"},
 	}
-	for name, write := range writes {
+	for _, w := range writes {
 		for _, status := range []int{http.StatusFound, http.StatusTemporaryRedirect} {
 			var bodyless int
 			client := newRedirectedClient(t, redirectingServer(status, &bodyless))
-			ce := cerrors.AsCLIError(write(client))
+			ce := cerrors.AsCLIError(w.write(client))
 			if ce == nil || ce.HTTPStatus != status || ce.Retryable || bodyless != 0 ||
-				!strings.Contains(ce.Hint, "may still have applied") {
-				t.Fatalf("%s %d: got %+v after %d requests at the target; want the redirect itself", name, status, ce, bodyless)
+				!strings.Contains(ce.Hint, "may still have applied") || !strings.Contains(ce.Hint, w.hint) {
+				t.Fatalf("%s %d: got %+v after %d requests at the target; want the redirect itself", w.name, status, ce, bodyless)
+			}
+			if w.step != "" && ce.NextSteps[len(ce.NextSteps)-1] != w.step {
+				t.Fatalf("%s %d: next steps %q; want the check %q last", w.name, status, ce.NextSteps, w.step)
 			}
 		}
 	}

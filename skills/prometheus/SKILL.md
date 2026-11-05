@@ -1,6 +1,6 @@
 ---
 name: prometheus
-version: 0.1.5
+version: 0.1.6
 description: "Query Prometheus and Prometheus-compatible backends (Thanos, Cortex/Mimir, VictoriaMetrics) from the command line: PromQL instant and range queries, metric/label/series discovery, metric metadata, scrape targets, recording and alerting rules, active alerts, Alertmanagers, and server config/flags/TSDB status. Use for PromQL questions, metric or alert investigations, Prometheus URLs, 'is it up', error rates, latency percentiles, saturation, which targets are down, why a metric is missing, or which rules are failing. JSON output and structured errors support agent workflows. Reuse existing host configuration; setup is prometheus-cli config init or PROMETHEUS_URL (plus PROMETHEUS_TOKEN only where a gateway requires it). Inspection is read-only; the TSDB admin writes need --allow-writes and --yes."
 metadata:
   requires:

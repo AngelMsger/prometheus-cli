@@ -115,7 +115,7 @@ fi
   `--base-url` that should use https or name the server root. The same
   request is redirected again, so fix the URL (`doctor`) instead of retrying.
   For an admin write, the write may still have applied behind the redirect:
-  check before repeating it.
+  run the check its hint and `next_steps` name before repeating it.
 - **`NOT_PROMETHEUS_API` (parse/10)** — a 200 response without the Prometheus
   envelope: `--base-url` points at something else (a dashboard, a login page, a
   catch-all proxy route). It must be the server root, not `/api/v1` and not a

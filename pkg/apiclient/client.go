@@ -363,13 +363,22 @@ func (c *apiClient) httpError(status int, env *envelope, raw []byte, path string
 			"page, a single sign-on proxy, or a --base-url that should use https or name the " +
 			"server root. The same request is redirected again, so check the URL first."
 		steps := []string{"prometheus-cli doctor", "prometheus-cli config get-contexts"}
-		if strings.Contains(path, "/admin/") {
-			// A proxy can pass an admin write on to Prometheus and then
-			// redirect, so the redirect does not show the write was refused.
-			hint += " The write may still have applied behind the redirect: check the TSDB " +
-				"before repeating it."
-			steps = append(steps, "Before repeating a delete-series, check its series with "+
-				"prometheus-cli series list --match '<selector>' over the same window.")
+		// A proxy can pass an admin write on to Prometheus and then redirect,
+		// so the redirect does not show the write was refused. Each write
+		// says how to tell whether it applied.
+		switch path {
+		case apiPath(pathDeleteSeries):
+			// DeleteSeries adds the series list for its own selectors and window.
+			hint += " The delete may still have applied behind the redirect: before repeating " +
+				"it, list its series over its window; series still listed were not deleted."
+		case apiPath(pathCleanTombstones):
+			hint += " The clean-up may still have applied behind the redirect. Repeating it is " +
+				"safe once the URL is fixed: it only erases data already marked deleted."
+		case apiPath(pathSnapshot):
+			hint += " A snapshot may still have applied behind the redirect: before taking " +
+				"another, look for a new directory under snapshots/ in the server's data " +
+				"directory (storage.tsdb.path in status flags)."
+			steps = append(steps, "prometheus-cli status flags")
 		}
 		e := cerrors.New(cat, "HTTP_"+statusSlug(status), msg).
 			WithHTTPStatus(status).
