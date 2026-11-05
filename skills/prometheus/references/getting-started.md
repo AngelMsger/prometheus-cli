@@ -91,6 +91,11 @@ prometheus-cli auth status   # what this context sends + is the server answering
 prometheus-cli doctor        # config / credentials / connectivity checks
 ```
 
+A `doctor` check whose `status` is `redirected` reached a server that
+redirected it (usually a login page, a single sign-on proxy, or an `http`
+URL that should use https): its `detail` names where it points; fix
+`--base-url` (the server root) rather than the credentials.
+
 There is no "who am I": Prometheus exposes no identity endpoint, so `auth
 status` reports the resolved settings plus the server's version from build info.
 

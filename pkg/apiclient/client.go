@@ -197,7 +197,7 @@ func (c *apiClient) do(ctx context.Context, req *http.Request, path string) (*en
 	// it is reported as the redirect it is, not as a response that is not
 	// Prometheus.
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		return nil, c.httpError(resp.StatusCode, nil, nil, path)
+		return nil, redirectError(resp, path)
 	}
 	if resp.StatusCode == http.StatusNoContent || len(strings.TrimSpace(string(raw))) == 0 {
 		if resp.StatusCode >= 400 {
@@ -358,40 +358,50 @@ func (c *apiClient) httpError(status int, env *envelope, raw []byte, path string
 				"prometheus-cli query parse --query '<promql>'",
 				"prometheus-cli metadata list --metric <name>",
 				"prometheus-cli labels values __name__ --since 1h")
-	case status >= 300 && status < 400:
-		hint := "Something in front of Prometheus redirected the request: usually a login " +
-			"page, a single sign-on proxy, or a --base-url that should use https or name the " +
-			"server root. The same request is redirected again, so check the URL first."
-		steps := []string{"prometheus-cli doctor", "prometheus-cli config get-contexts"}
-		// A proxy can pass an admin write on to Prometheus and then redirect,
-		// so the redirect does not show the write was refused. Each write
-		// says how to tell whether it applied.
-		switch path {
-		case apiPath(pathDeleteSeries):
-			// DeleteSeries adds how to repeat it, with its own selectors and
-			// window.
-			hint += " The delete may still have applied behind the redirect, and its outcome " +
-				"stays unknown: Prometheus can keep listing a series whose samples were deleted, " +
-				"so a series list does not show it failed. Check the samples in its window and the " +
-				"server's logs, and repeat it only if the user confirms."
-		case apiPath(pathCleanTombstones):
-			hint += " The clean-up may still have applied behind the redirect. Repeating it is " +
-				"safe once the URL is fixed: it only erases data already marked deleted."
-		case apiPath(pathSnapshot):
-			hint += " A snapshot may still have applied behind the redirect: before taking " +
-				"another, look for a new directory under snapshots/ in the server's data " +
-				"directory (storage.tsdb.path in status flags)."
-			steps = append(steps, "prometheus-cli status flags")
-		}
-		e := cerrors.New(cat, "HTTP_"+statusSlug(status), msg).
-			WithHTTPStatus(status).
-			WithHint(hint).
-			WithNextSteps(steps...)
-		e.Retryable = false
-		return e
 	default:
 		return cerrors.New(cat, "HTTP_"+statusSlug(status), msg).WithHTTPStatus(status)
 	}
+}
+
+// redirectError reports a redirect the transport returned instead of
+// following: an admin write's, a posted query's 301, 302 or 303, or the tenth
+// hop. The kit's redirect rule names where it points and --base-url, and it
+// is not retryable, since the same request is redirected again. A proxy can
+// pass an admin write on to Prometheus and then redirect, so the redirect
+// does not show the write was refused: each write's hint says how to tell
+// whether it applied.
+func redirectError(resp *http.Response, path string) error {
+	status := resp.StatusCode
+	loc, _ := resp.Location()
+	e := cerrors.New(cerrors.FromHTTPStatus(status), "HTTP_"+statusSlug(status),
+		fmt.Sprintf("Prometheus returned HTTP %d", status)).
+		WithHTTPStatus(status).
+		WithRedirect(loc, redirectGuide)
+	switch path {
+	case apiPath(pathDeleteSeries):
+		// DeleteSeries adds how to repeat it, with its own selectors and
+		// window.
+		e.Hint += " The delete may still have applied behind the redirect, and its outcome " +
+			"stays unknown: Prometheus can keep listing a series whose samples were deleted, " +
+			"so a series list does not show it failed. Check the samples in its window and the " +
+			"server's logs, and repeat it only if the user confirms."
+	case apiPath(pathCleanTombstones):
+		e.Hint += " The clean-up may still have applied behind the redirect. Repeating it is " +
+			"safe once the URL is fixed: it only erases data already marked deleted."
+	case apiPath(pathSnapshot):
+		e.Hint += " A snapshot may still have applied behind the redirect: before taking " +
+			"another, look for a new directory under snapshots/ in the server's data " +
+			"directory (storage.tsdb.path in status flags)."
+		e.NextSteps = append(e.NextSteps, "prometheus-cli status flags")
+	}
+	return e
+}
+
+// redirectGuide is what a redirect's error tells the user to check. The
+// server URL must also name the server root, the part before /api/v1.
+var redirectGuide = cerrors.RedirectGuide{
+	Setting: "--base-url (the Prometheus server root)",
+	Steps:   []string{"prometheus-cli doctor", "prometheus-cli config get-contexts"},
 }
 
 func statusSlug(status int) string {

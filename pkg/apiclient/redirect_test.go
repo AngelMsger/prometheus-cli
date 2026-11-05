@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/angelmsger/agent-cli-kit/doctor"
 	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
 	"github.com/angelmsger/prometheus-cli/pkg/timeutil"
 )
@@ -258,5 +260,59 @@ func TestRedirectWithoutLocationIsReported(t *testing.T) {
 	if ce == nil || ce.Code != "HTTP_FOUND" || ce.Category != cerrors.CategoryServer || ce.Retryable ||
 		ce.HTTPStatus != http.StatusFound {
 		t.Fatalf("got %+v; want HTTP_FOUND, server, not retryable", ce)
+	}
+	if !strings.Contains(ce.Hint, "HTTP 302 and no redirect target") || strings.Contains(ce.Hint, "login page") {
+		t.Fatalf("hint = %q; want the no-target hint", ce.Hint)
+	}
+}
+
+// A read's redirect that comes back is reported with the kit's redirect rule:
+// not retryable, a hint naming where it points (without its query) and
+// --base-url, and doctor first. doctor reports it as redirected, not
+// unreachable. A GET's loop ends at the tenth hop; 0.5.0 reported it as
+// NETWORK (exit 8, retryable).
+func TestReadRedirectIsReportedNotRetried(t *testing.T) {
+	for _, loop := range []bool{false, true} {
+		var sent atomic.Int64
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sent.Add(1)
+			if loop {
+				http.Redirect(w, r, r.URL.Path, http.StatusFound)
+				return
+			}
+			http.Redirect(w, r, "https://sso.example.test/login?ticket=sign-in-secret", http.StatusFound)
+		}))
+		t.Cleanup(srv.Close)
+		client, err := BuildClient(BuildParams{BaseURL: srv.URL, Timeout: 5 * time.Second, MaxRetries: 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loop {
+			_, err = client.BuildInfo(context.Background())
+		} else {
+			_, err = client.Query(context.Background(), InstantRequest{Query: "up"})
+		}
+		ce := cerrors.AsCLIError(err)
+		if ce == nil || ce.Code != "HTTP_FOUND" || ce.Retryable || ce.HTTPStatus != http.StatusFound ||
+			!strings.Contains(ce.Hint, "check --base-url (the Prometheus server root) first") ||
+			strings.Contains(ce.Hint, "sign-in-secret") || ce.NextSteps[0] != "prometheus-cli doctor" {
+			t.Fatalf("loop=%v: got %+v", loop, ce)
+		}
+		if !loop && !strings.Contains(ce.Hint, "redirected the request to https://sso.example.test:") {
+			t.Fatalf("hint does not name the target: %q", ce.Hint)
+		}
+		want := int64(1)
+		if loop {
+			want = 10
+		}
+		if got := sent.Load(); got != want {
+			t.Fatalf("loop=%v: requests = %d, want %d (no retry)", loop, got, want)
+		}
+		if got := doctor.Status(err); got != doctor.StatusRedirected {
+			t.Fatalf("loop=%v: doctor.Status = %q, want redirected", loop, got)
+		}
+		if got := doctor.Detail(err); !strings.Contains(got, "Prometheus returned HTTP 302. The server redirected") {
+			t.Fatalf("loop=%v: doctor.Detail = %q", loop, got)
+		}
 	}
 }
