@@ -26,6 +26,11 @@ type (
 	Options = kit.Options
 )
 
+// AsRead marks the requests sent with the returned context as reads, whatever
+// their method: the client retries them and follows their redirects as it
+// does a GET. The query endpoints, which the CLI posts, use it.
+var AsRead = kit.AsRead
+
 // New returns a Client. Requests that carry no User-Agent get prometheus-cli's.
 func New(opt Options) *Client {
 	if opt.UserAgent == "" {

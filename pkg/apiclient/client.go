@@ -152,9 +152,17 @@ func (c *apiClient) get(ctx context.Context, path string, query url.Values) (*en
 	return c.do(ctx, req, path)
 }
 
+// postRead posts a query endpoint's form. The request only reads, so the
+// transport retries it and follows its redirect as it does a GET
+// (transport.AsRead): an http-to-https 307 or 308 in front of Prometheus
+// sends the same query again.
+func (c *apiClient) postRead(ctx context.Context, path string, form url.Values) (*envelope, error) {
+	return c.post(transport.AsRead(ctx), path, form)
+}
+
 // post issues a POST with a form body. Prometheus accepts every query endpoint
-// over POST, which is how the CLI sends expressions too long for a URL, and it
-// is the only method the admin endpoints accept.
+// over POST, which is how the CLI sends expressions too long for a URL (see
+// postRead), and it is the only method the admin endpoints accept.
 func (c *apiClient) post(ctx context.Context, path string, form url.Values) (*envelope, error) {
 	var body io.Reader
 	if len(form) > 0 {
@@ -183,6 +191,14 @@ func (c *apiClient) do(ctx context.Context, req *http.Request, path string) (*en
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
 
+	// The transport hands back a redirect it does not follow: any redirect of
+	// an admin write, and a 301, 302 or 303 of a posted query, which Go would
+	// send as a GET without the query. Its body is a login page or nothing, so
+	// it is reported as the redirect it is, not as a response that is not
+	// Prometheus.
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return nil, c.httpError(resp.StatusCode, nil, nil, path)
+	}
 	if resp.StatusCode == http.StatusNoContent || len(strings.TrimSpace(string(raw))) == 0 {
 		if resp.StatusCode >= 400 {
 			return nil, c.httpError(resp.StatusCode, nil, raw, path)
@@ -342,6 +358,37 @@ func (c *apiClient) httpError(status int, env *envelope, raw []byte, path string
 				"prometheus-cli query parse --query '<promql>'",
 				"prometheus-cli metadata list --metric <name>",
 				"prometheus-cli labels values __name__ --since 1h")
+	case status >= 300 && status < 400:
+		hint := "Something in front of Prometheus redirected the request: usually a login " +
+			"page, a single sign-on proxy, or a --base-url that should use https or name the " +
+			"server root. The same request is redirected again, so check the URL first."
+		steps := []string{"prometheus-cli doctor", "prometheus-cli config get-contexts"}
+		// A proxy can pass an admin write on to Prometheus and then redirect,
+		// so the redirect does not show the write was refused. Each write
+		// says how to tell whether it applied.
+		switch path {
+		case apiPath(pathDeleteSeries):
+			// DeleteSeries adds how to repeat it, with its own selectors and
+			// window.
+			hint += " The delete may still have applied behind the redirect, and its outcome " +
+				"stays unknown: Prometheus can keep listing a series whose samples were deleted, " +
+				"so a series list does not show it failed. Check the samples in its window and the " +
+				"server's logs, and repeat it only if the user confirms."
+		case apiPath(pathCleanTombstones):
+			hint += " The clean-up may still have applied behind the redirect. Repeating it is " +
+				"safe once the URL is fixed: it only erases data already marked deleted."
+		case apiPath(pathSnapshot):
+			hint += " A snapshot may still have applied behind the redirect: before taking " +
+				"another, look for a new directory under snapshots/ in the server's data " +
+				"directory (storage.tsdb.path in status flags)."
+			steps = append(steps, "prometheus-cli status flags")
+		}
+		e := cerrors.New(cat, "HTTP_"+statusSlug(status), msg).
+			WithHTTPStatus(status).
+			WithHint(hint).
+			WithNextSteps(steps...)
+		e.Retryable = false
+		return e
 	default:
 		return cerrors.New(cat, "HTTP_"+statusSlug(status), msg).WithHTTPStatus(status)
 	}

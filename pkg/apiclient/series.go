@@ -25,7 +25,7 @@ func (c *apiClient) Series(ctx context.Context, req SeriesRequest) ([]SeriesRef,
 		return nil, err
 	}
 
-	env, err := c.post(ctx, apiPath("/series"), form)
+	env, err := c.postRead(ctx, apiPath("/series"), form)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (c *apiClient) LabelNames(ctx context.Context, req LabelsRequest) ([]string
 		return nil, err
 	}
 
-	env, err := c.post(ctx, apiPath("/labels"), form)
+	env, err := c.postRead(ctx, apiPath("/labels"), form)
 	if err != nil {
 		return nil, err
 	}

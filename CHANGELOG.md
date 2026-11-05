@@ -28,6 +28,35 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- A query behind a 307 or 308 redirect (for example http to https) is sent
+  again with its form, and a transient failure of a query is retried, as for
+  any read. The query endpoints are posted, and agent-cli-kit v0.8.0 follows
+  and retries a POST only when the CLI marks it as a read
+  (`transport.AsRead`), which the query, series and labels calls now do.
+- A redirect the client does not follow is reported as itself:
+  `HTTP_<STATUS>` (server, exit 9, not retryable) with a hint to check the
+  URL. That is a query's 301, 302 or 303, which would turn it into a GET
+  without the query; any redirect of an admin write, which is never sent
+  again; and a redirect Go cannot follow, such as one without a `Location`.
+  An admin write's hint adds that the write may still have applied behind
+  the redirect: `snapshot` points at the snapshots directory,
+  `clean-tombstones` says repeating it is safe, and `delete-series` stays an
+  unknown outcome (Prometheus can keep listing a deleted series, so no read
+  settles it); a repeat needs the user's confirmation, and the only command
+  offered is a `--dry-run` with the window fixed, ending at the delete's end
+  or the first attempt, whichever is earlier (from the epoch for a delete
+  without a start); the hint says when that leaves part of the window out, or
+  when no repeat is offered. **Error codes change for
+  these responses:** 0.5.0 followed a query's redirect as a GET and failed on
+  the page behind it with a parse error (exit 10): `DECODE` for an HTML login
+  page, `NOT_PROMETHEUS_API` for an empty body or JSON without the
+  Prometheus envelope. A redirect without a `Location` failed the same way,
+  or, if its body carried a Prometheus envelope, succeeded or took the
+  envelope's error. A 307 or 308 sent an admin write again. A script that
+  took exit 10 as a wrong URL now gets exit 9 with `retryable: false` for a
+  redirect.
+- Update the companion Skill to `0.1.6`: a redirect is not retryable, and
+  the scripted error example reads `retryable` before retrying an exit 9.
 - Mask passwords embedded in the server URL in `--verbose` request logs, with
   agent-cli-kit v0.6.0's transport.
 

@@ -76,6 +76,40 @@ Prometheus returns one envelope from every `/api/v1` endpoint:
   classification: `bad_data` and `execution` become **usage** errors, because
   the caller's PromQL is at fault and retrying is pointless; `timeout`,
   `canceled` and `unavailable` become **server** errors, which are retryable.
+- **A 3xx.** The kit's transport follows a redirect only for a read that
+  the next hop sends unchanged. The query endpoints are posted (an expression
+  can be too long for a URL), so `postRead` marks them with
+  `transport.AsRead`: they are retried like a GET and follow a 307 or 308,
+  which sends the same form again. A 301, 302 or 303 would become a GET
+  without the query, and an admin write is never followed, so those come back
+  as `HTTP_<STATUS>` (server, not retryable) with a hint on the URL, as does a
+  redirect Go cannot follow (no `Location`). Before, the page behind a
+  followed redirect failed as a parse error: `DECODE` for an HTML login page,
+  `NOT_PROMETHEUS_API` for an empty body or JSON without the envelope. A
+  proxy can pass an admin write on before it redirects, so an admin write's
+  hint adds that the write may still have applied: a snapshot points at
+  `snapshots/` under `storage.tsdb.path`, and a clean-up is safe to repeat.
+  A delete stays unknown, because Prometheus can keep listing a series whose
+  samples were deleted (even after clean-tombstones), so no read proves it
+  failed. A repeat is the user's call: `DeleteSeries` offers only a `--dry-run`
+  with the window fixed, from the delete's start to its end or the first
+  attempt, whichever is earlier, to the nanosecond, so a confirmed repeat cannot
+  reach samples collected since, even when the delete asked for a window
+  reaching past it. A delete without a start reached back to the oldest sample;
+  its preview, which needs a `--from`, starts at the epoch. Whenever the preview
+  leaves part of the delete's window out (before the epoch, or after the first
+  attempt), the hint says that part is not repeated. No repeat is offered for a
+  delete that starts at or after the first attempt, nor for a library caller's
+  whose end is not after the preview's start; the hint says which. A library
+  caller can pass its own HTTP client (`transport.Options.Doer`), which keeps
+  its own redirect policy and may follow an admin write anyway, even sending it
+  again on a 307 or 308; the kit still answers the write with the redirect it
+  got first, so the outcome and guidance above hold. The exception is a client
+  that stops following with an error (its `CheckRedirect` refuses a hop, or it
+  reaches its hop limit): the kit returns that error with the redirect, and `do`
+  reports any error as `NETWORK` (exit 8, retryable), without the redirect's
+  status or the admin guidance. The CLI's own client never stops a write that
+  way, since it follows no write at all.
 - **A 404 on an `/admin/` path.** Translated to `ADMIN_API_DISABLED`
   (permission), because that is what it actually means — the server was started
   without `--web.enable-admin-api` — rather than "no such resource".

@@ -19,10 +19,11 @@ Every failure is JSON on **stderr** (stdout stays clean), shaped:
 }
 ```
 
-Read `next_steps` first — it names the command to run next. `retryable` (when
-present) tells you whether a retry in the same environment could help
-(rate-limit / network / server). Environment changes use the optional
-`recovery` object instead.
+Read `next_steps` first — it names the command to run next. `retryable` tells
+you whether a retry in the same environment could help: usually for
+rate-limit, network and server errors, but never for a redirect (a 3xx
+`http_status`, see below). Environment changes use the optional `recovery`
+object instead.
 
 ## Category → exit code
 
@@ -37,7 +38,7 @@ present) tells you whether a retry in the same environment could help
 | `not_found`  | 6    | No such endpoint → `doctor`, `status buildinfo`. |
 | `rate_limit` | 7    | Too many requests; retryable. |
 | `network`    | 8    | Server unreachable; retryable → `doctor`, check `--base-url`. |
-| `server`     | 9    | Prometheus 5xx, or a query timeout/cancellation; retryable. |
+| `server`     | 9    | Prometheus 5xx, or a query timeout/cancellation; retryable. A redirect the CLI does not follow is not: check the URL. |
 | `parse`      | 10   | The response was not a Prometheus API reply; retry with `--verbose`. |
 | `conflict`   | 11   | Resource changed since read; re-fetch then retry. |
 
@@ -45,16 +46,23 @@ Scripted use:
 
 ```bash
 result_file=$(mktemp)
-trap 'rm -f "$result_file"' EXIT
-if prometheus-cli query instant --query 'up == 0' >"$result_file"; then
+error_file=$(mktemp)
+trap 'rm -f "$result_file" "$error_file"' EXIT
+if prometheus-cli query instant --query 'up == 0' >"$result_file" 2>"$error_file"; then
   cat "$result_file"
 else
   code=$?
+  cat "$error_file" >&2
   case "$code" in
     2) printf '%s\n' 'Fix the query or flags; check the structured next_steps.' >&2 ;;
     3|4) printf '%s\n' 'Inspect the structured auth/config recovery steps.' >&2 ;;
     5) printf '%s\n' 'Not permitted, or a write was blocked by read-only mode.' >&2 ;;
-    7|8|9) printf '%s\n' 'Transient read failure; retry within a bounded budget.' >&2 ;;
+    7|8|9)
+      if grep -q '"retryable": *true' "$error_file"; then
+        printf '%s\n' 'Transient read failure; retry within a bounded budget.' >&2
+      else
+        printf '%s\n' 'Not transient (a redirect, say); follow the hint and next_steps.' >&2
+      fi ;;
     *) printf 'Command failed with exit %s.\n' "$code" >&2 ;;
   esac
   exit "$code"
@@ -101,6 +109,18 @@ fi
 - **`READONLY_BLOCKED` (permission/5)** — a write was blocked because the
   session is read-only. Preview with `--dry-run`; use `--allow-writes` only for
   a write the user authorized.
+- **A redirect: `HTTP_FOUND`, `HTTP_TEMPORARY_REDIRECT` and the other 3xx
+  codes (server/9, not retryable)** — something in front of Prometheus
+  redirected the request: a login page, a single sign-on proxy, or a
+  `--base-url` that should use https or name the server root. The same
+  request is redirected again, so fix the URL (`doctor`) instead of retrying.
+  For an admin write, the write may still have applied behind the redirect:
+  follow its hint. A `delete-series` stays unknown (a series list can still
+  show deleted series): repeat it only if the user confirms, with the fixed
+  window from the `--dry-run` in `next_steps`. That window ends by the first
+  attempt: when the hint says part of the delete's window is not repeated,
+  tell the user the repeat covers only the rest. When the hint says no repeat
+  is offered, there is none to run.
 - **`NOT_PROMETHEUS_API` (parse/10)** — a 200 response without the Prometheus
   envelope: `--base-url` points at something else (a dashboard, a login page, a
   catch-all proxy route). It must be the server root, not `/api/v1` and not a
