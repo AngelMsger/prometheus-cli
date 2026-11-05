@@ -125,9 +125,11 @@ func TestAdminWriteRedirectIsReported(t *testing.T) {
 // and --to read back as exactly that window, and the window resolves as the
 // CLI's own --from/--to would. An explicit epoch start used to come out as
 // "0", which --from reads as now, and an end truncated to the second could
-// fall before a start a fraction of a second earlier. A delete that starts at
-// or after the attempt, or whose own end is not after its start, gets no
-// repeat, and its hint names which.
+// fall before a start a fraction of a second earlier. A delete without a
+// start reached back to the oldest sample, so its preview, which needs a
+// --from, starts at the epoch, and the hint says anything before it is not
+// repeated. A delete that starts at or after the attempt, or whose end is not
+// after the preview's start, gets no repeat, and its hint names which.
 func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 	start, end := time.Unix(1700000000, 0), time.Unix(1700003600, 0)
 	before := time.Now()
@@ -148,6 +150,8 @@ func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 		{name: "with a window", req: DeleteSeriesRequest{Match: []string{`up{job="x"}`, "down"}, Start: start, End: end}, from: start, to: end},
 		{name: "up to an end", req: DeleteSeriesRequest{Match: []string{"up"}, End: end}, from: time.Unix(0, 0), to: end},
 		{name: "without a window", req: DeleteSeriesRequest{Match: []string{"up"}}, from: time.Unix(0, 0), cut: "had no end"},
+		{name: "from before the epoch", req: DeleteSeriesRequest{Match: []string{"up"}, Start: time.Unix(-3600, 0), End: end},
+			from: time.Unix(-3600, 0), to: end},
 		{name: "from the epoch", req: DeleteSeriesRequest{Match: []string{"up"}, Start: time.Unix(0, 0), End: end}, from: time.Unix(0, 0), to: end},
 		{name: "from a fraction of a second", req: DeleteSeriesRequest{Match: []string{"up"}, Start: start.Add(250 * time.Millisecond), End: end},
 			from: start.Add(250 * time.Millisecond), to: end},
@@ -164,6 +168,8 @@ func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 			noRepeat: "ends at or before its start"},
 		{name: "with an end before its start", req: DeleteSeriesRequest{Match: []string{"up"}, Start: end, End: start},
 			noRepeat: "ends at or before its start"},
+		{name: "without a start, to an end before the epoch", req: DeleteSeriesRequest{Match: []string{"up"}, End: time.Unix(-3600, 0)},
+			noRepeat: "had no start and its window ends at or before the epoch"},
 	} {
 		var bodyless int
 		client := newRedirectedClient(t, redirectingServer(http.StatusFound, &bodyless))
@@ -214,8 +220,12 @@ func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 		if tc.cut != "" && (!strings.Contains(ce.Hint, cutNote) || !strings.Contains(ce.Hint, "is not repeated")) {
 			t.Fatalf("%s: hint %q; want it to say the preview stops at %s, short of the window asked for", tc.name, ce.Hint, toArg)
 		}
-		if tc.cut == "" && strings.Contains(ce.Hint, "is not repeated") {
+		if tc.cut == "" && strings.Contains(ce.Hint, "The preview stops at") {
 			t.Fatalf("%s: hint %q says the preview stops short of a window it covers", tc.name, ce.Hint)
+		}
+		epochNote := "The preview starts at the epoch, " + fromArg + ", while the delete had no start: anything before it is not repeated."
+		if noStart := tc.req.Start.IsZero(); noStart != strings.Contains(ce.Hint, epochNote) || (!noStart && strings.Contains(ce.Hint, "had no start")) {
+			t.Fatalf("%s: hint %q; want the epoch start noted only for a delete without a start", tc.name, ce.Hint)
 		}
 	}
 }

@@ -57,25 +57,31 @@ func (c *apiClient) DeleteSeries(ctx context.Context, req DeleteSeriesRequest) e
 
 // deleteRepeat says how a delete a redirect answered can be repeated: the
 // sentence its hint adds, and the --dry-run preview to offer, if any. The
-// preview's window starts at req's start, or at the epoch for a delete
-// without one, which reaches back to the oldest sample. It ends at req's end
-// or at sent, the first attempt, whichever is earlier, so a repeat cannot
-// reach samples collected since, whatever window req asked for; when that
-// cuts req's window short (req has no end, or one after sent), the hint says
-// the part after the first attempt is not repeated. Both instants are RFC3339
-// with every fraction kept, which --from and --to read as written; an epoch
-// number such as 0 would read as a zero look-back, that is now.
+// preview's window starts at req's start, or, for a delete without one,
+// which reached back to the oldest sample, at the epoch: --to needs a --from,
+// and the epoch is spelled out (the hint says anything before it is not
+// repeated). It ends at req's end or at sent, the first attempt, whichever is
+// earlier, so a repeat cannot reach samples collected since, whatever window
+// req asked for; when that cuts req's window short (req has no end, or one
+// after sent), the hint says the part after the first attempt is not
+// repeated. Both instants are RFC3339 with every fraction kept, which --from
+// and --to read as written; an epoch number such as 0 would read as a zero
+// look-back, that is now.
 //
-// No preview is offered when req's end is not after its start, which --from
-// and --to cannot express (only a library caller can send one), or when req
-// starts at or after the first attempt, so a repeat could reach only samples
-// collected since. The hint says which.
+// No preview is offered when req's end is not after the preview's start
+// (req's own start, which --from and --to cannot pair with such an end; or,
+// without one, the epoch), or when req starts at or after the first attempt,
+// so a repeat could reach only samples collected since. The hint says which.
 func deleteRepeat(req DeleteSeriesRequest, sent time.Time) (hint, preview string) {
-	from := time.Unix(0, 0)
-	if !req.Start.IsZero() {
-		from = req.Start
+	from := req.Start
+	if from.IsZero() {
+		from = time.Unix(0, 0)
 	}
 	if !req.End.IsZero() && !req.End.After(from) {
+		if req.Start.IsZero() {
+			return " It had no start and its window ends at or before the epoch, where a " +
+				"preview has to start, so no repeat is offered.", ""
+		}
 		return " Its window ends at or before its start, which --from and --to cannot " +
 			"express, so no repeat is offered.", ""
 	}
@@ -83,9 +89,13 @@ func deleteRepeat(req DeleteSeriesRequest, sent time.Time) (hint, preview string
 		return " Its window starts at or after the first attempt, so a repeat could reach " +
 			"only samples collected since: no repeat is offered.", ""
 	}
-	to := sent
 	hint = " Repeat it with its window fixed as in the preview below: it ends by the " +
 		"first attempt, so it cannot reach samples collected since."
+	if req.Start.IsZero() {
+		hint += " The preview starts at the epoch, " + previewInstant(from) +
+			", while the delete had no start: anything before it is not repeated."
+	}
+	to := sent
 	switch {
 	case !req.End.IsZero() && !req.End.After(sent):
 		to = req.End

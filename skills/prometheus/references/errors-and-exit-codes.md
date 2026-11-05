@@ -118,8 +118,8 @@ fi
   follow its hint. A `delete-series` stays unknown (a series list can still
   show deleted series): repeat it only if the user confirms, with the fixed
   window from the `--dry-run` in `next_steps`. That window ends by the first
-  attempt: when the hint says the part after it is not repeated, tell the
-  user the repeat covers only the earlier part. When the hint says no repeat
+  attempt: when the hint says part of the delete's window is not repeated,
+  tell the user the repeat covers only the rest. When the hint says no repeat
   is offered, there is none to run.
 - **`NOT_PROMETHEUS_API` (parse/10)** — a 200 response without the Prometheus
   envelope: `--base-url` points at something else (a dashboard, a login page, a

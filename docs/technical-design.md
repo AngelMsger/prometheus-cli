@@ -92,14 +92,15 @@ Prometheus returns one envelope from every `/api/v1` endpoint:
   A delete stays unknown, because Prometheus can keep listing a series whose
   samples were deleted (even after clean-tombstones), so no read proves it
   failed. A repeat is the user's call: `DeleteSeries` offers only a `--dry-run`
-  with the window fixed, from the delete's start (or the epoch) to its end or
-  the first attempt, whichever is earlier, to the nanosecond, so a confirmed
-  repeat cannot reach samples collected since, even when the delete asked for a
-  window reaching past it. When that cuts the window short (no end, or an end
-  after the first attempt), the hint says the part after the first attempt is
-  not repeated. No repeat is offered for a delete that starts at or after the
-  first attempt, nor for a library caller's whose end is not after its start,
-  which `--from` and `--to` cannot express; the hint says which. A library
+  with the window fixed, from the delete's start to its end or the first
+  attempt, whichever is earlier, to the nanosecond, so a confirmed repeat cannot
+  reach samples collected since, even when the delete asked for a window
+  reaching past it. A delete without a start reached back to the oldest sample;
+  its preview, which needs a `--from`, starts at the epoch. Whenever the preview
+  leaves part of the delete's window out (before the epoch, or after the first
+  attempt), the hint says that part is not repeated. No repeat is offered for a
+  delete that starts at or after the first attempt, nor for a library caller's
+  whose end is not after the preview's start; the hint says which. A library
   caller can pass its own HTTP client (`transport.Options.Doer`), which keeps
   its own redirect policy and may follow an admin write anyway, even sending it
   again on a 307 or 308; the kit still answers the write with the redirect it
