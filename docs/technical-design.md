@@ -93,8 +93,11 @@ Prometheus returns one envelope from every `/api/v1` endpoint:
   samples were deleted (even after clean-tombstones), so no read proves it
   failed. A repeat is the user's call: `DeleteSeries` offers only a
   `--dry-run` with the window fixed, ending at the first attempt when the
-  delete had no end, so a confirmed repeat cannot reach samples collected
-  since.
+  delete had no end, so a confirmed repeat cannot reach samples collected since.
+  A library caller can pass its own HTTP client (`transport.Options.Doer`),
+  which keeps its own redirect policy and may follow an admin write anyway, even
+  sending it again on a 307 or 308; the kit still answers the write with the
+  redirect it got first, so the outcome and guidance above hold.
 - **A 404 on an `/admin/` path.** Translated to `ADMIN_API_DISABLED`
   (permission), because that is what it actually means — the server was started
   without `--web.enable-admin-api` — rather than "no such resource".
