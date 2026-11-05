@@ -30,7 +30,7 @@ All notable changes to this project are documented here. The format follows
 
 - A query behind a 307 or 308 redirect (for example http to https) is sent
   again with its form, and a transient failure of a query is retried, as for
-  any read. The query endpoints are posted, and agent-cli-kit v0.7.0 follows
+  any read. The query endpoints are posted, and agent-cli-kit v0.8.0 follows
   and retries a POST only when the CLI marks it as a read
   (`transport.AsRead`), which the query, series and labels calls now do.
 - A redirect the client does not follow is reported as `HTTP_<status>`
