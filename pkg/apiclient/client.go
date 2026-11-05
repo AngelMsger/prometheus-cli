@@ -368,12 +368,12 @@ func (c *apiClient) httpError(status int, env *envelope, raw []byte, path string
 		// says how to tell whether it applied.
 		switch path {
 		case apiPath(pathDeleteSeries):
-			// DeleteSeries adds the preview with its own selectors and window.
+			// DeleteSeries adds how to repeat it, with its own selectors and
+			// window.
 			hint += " The delete may still have applied behind the redirect, and its outcome " +
 				"stays unknown: Prometheus can keep listing a series whose samples were deleted, " +
 				"so a series list does not show it failed. Check the samples in its window and the " +
-				"server's logs, and repeat it only if the user confirms, with its window fixed as " +
-				"in the preview below so it cannot reach samples collected since."
+				"server's logs, and repeat it only if the user confirms."
 		case apiPath(pathCleanTombstones):
 			hint += " The clean-up may still have applied behind the redirect. Repeating it is " +
 				"safe once the URL is fixed: it only erases data already marked deleted."

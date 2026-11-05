@@ -121,11 +121,20 @@ func TestAdminWriteRedirectIsReported(t *testing.T) {
 // delete's start (or the epoch) to its end, or, for a delete without one, to
 // the moment of this attempt, so a repeat the user confirms cannot reach
 // samples collected since. Its --from and --to read back as exactly that
-// window; an explicit epoch start used to come out as "0", which --from
-// reads as now.
+// window, and the window resolves as the CLI's own --from/--to would. An
+// explicit epoch start used to come out as "0", which --from reads as now,
+// and an end truncated to the second could fall before a start a fraction
+// of a second earlier. A delete without an end that starts at or after the
+// attempt has no such window, and gets no repeat.
 func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 	start, end := time.Unix(1700000000, 0), time.Unix(1700003600, 0)
-	before := time.Now().Truncate(time.Second)
+	before := time.Now()
+	// A start a fraction of a second before the attempt, which a truncated
+	// end would fall before.
+	justBefore := before.Add(-time.Nanosecond)
+	if justBefore.Nanosecond() == 0 {
+		justBefore = justBefore.Add(-time.Nanosecond)
+	}
 	for _, tc := range []struct {
 		name     string
 		req      DeleteSeriesRequest
@@ -137,19 +146,17 @@ func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 		{"from a fraction of a second", DeleteSeriesRequest{Match: []string{"up"}, Start: start.Add(250 * time.Millisecond), End: end},
 			start.Add(250 * time.Millisecond), end},
 		{"without an end", DeleteSeriesRequest{Match: []string{"up"}, Start: start}, start, time.Time{}},
+		{"without an end, from just before the attempt", DeleteSeriesRequest{Match: []string{"up"}, Start: justBefore},
+			justBefore, time.Time{}},
 	} {
 		var bodyless int
 		client := newRedirectedClient(t, redirectingServer(http.StatusFound, &bodyless))
 		ce := cerrors.AsCLIError(client.DeleteSeries(context.Background(), tc.req))
 		if ce == nil || ce.Retryable || strings.Contains(ce.Hint, "were not deleted") ||
-			!strings.Contains(ce.Hint, "only if the user confirms") {
+			!strings.Contains(ce.Hint, "only if the user confirms") || !strings.Contains(ce.Hint, "preview below") {
 			t.Fatalf("%s: got %+v; want an unknown outcome that a repeat needs the user for", tc.name, ce)
 		}
-		for _, step := range ce.NextSteps {
-			if strings.Contains(step, "series list") || strings.Contains(step, "--yes") {
-				t.Fatalf("%s: step %q reads the outcome or repeats the delete", tc.name, step)
-			}
-		}
+		requireNoRepeat(t, tc.name, ce)
 		preview := ce.NextSteps[len(ce.NextSteps)-1]
 		matches := ""
 		for _, m := range tc.req.Match {
@@ -161,10 +168,9 @@ func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 			t.Fatalf("%s: last step %q; want a dry run of the same selectors with --from and --to", tc.name, preview)
 		}
 		now := time.Now()
-		from, err1 := timeutil.ParseInstant(fromArg, now)
-		to, err2 := timeutil.ParseInstant(toArg, now)
-		if err1 != nil || err2 != nil || !from.Equal(tc.from) {
-			t.Fatalf("%s: --from %q --to %q read as %v, %v (%v, %v); want from %v", tc.name, fromArg, toArg, from, to, err1, err2, tc.from)
+		from, to, err := timeutil.Range{From: fromArg, To: toArg, Now: now}.Resolve()
+		if err != nil || !from.Equal(tc.from) {
+			t.Fatalf("%s: --from %q --to %q resolve to %v, %v (%v); want from %v", tc.name, fromArg, toArg, from, to, err, tc.from)
 		}
 		if tc.to.IsZero() {
 			if to.Before(before) || to.After(now) {
@@ -172,6 +178,33 @@ func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 			}
 		} else if !to.Equal(tc.to) {
 			t.Fatalf("%s: --to %q is %v; want %v", tc.name, toArg, to, tc.to)
+		}
+	}
+
+	// Only a library caller can send a delete without an end that starts
+	// after the attempt: the window up to the attempt is empty, so any repeat
+	// would reach samples collected since.
+	var bodyless int
+	client := newRedirectedClient(t, redirectingServer(http.StatusFound, &bodyless))
+	ce := cerrors.AsCLIError(client.DeleteSeries(context.Background(), DeleteSeriesRequest{Match: []string{"up"}, Start: time.Now().Add(time.Hour)}))
+	if ce == nil || ce.Retryable || !strings.Contains(ce.Hint, "no repeat is offered") || strings.Contains(ce.Hint, "preview below") {
+		t.Fatalf("starting after the attempt: got %+v; want an unknown outcome with no repeat", ce)
+	}
+	requireNoRepeat(t, "starting after the attempt", ce)
+	for _, step := range ce.NextSteps {
+		if strings.Contains(step, "delete-series") {
+			t.Fatalf("starting after the attempt: step %q offers a repeat", step)
+		}
+	}
+}
+
+// requireNoRepeat fails if a step reads the delete's outcome from a series
+// list or repeats the delete without the user (--yes).
+func requireNoRepeat(t *testing.T, name string, ce *cerrors.CLIError) {
+	t.Helper()
+	for _, step := range ce.NextSteps {
+		if strings.Contains(step, "series list") || strings.Contains(step, "--yes") {
+			t.Fatalf("%s: step %q reads the outcome or repeats the delete", name, step)
 		}
 	}
 }

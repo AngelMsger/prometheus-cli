@@ -45,7 +45,14 @@ func (c *apiClient) DeleteSeries(ctx context.Context, req DeleteSeriesRequest) e
 		// and no read settles it: Prometheus can keep listing a series whose
 		// samples were deleted. A repeat is the user's call, so the only
 		// command offered is a preview with the window fixed.
-		ce.NextSteps = append(ce.NextSteps, fixedWindowDeletePreview(req, sent))
+		if preview, ok := fixedWindowDeletePreview(req, sent); ok {
+			ce.Hint += " Repeat it with its window fixed as in the preview below, so it " +
+				"cannot reach samples collected since."
+			ce.NextSteps = append(ce.NextSteps, preview)
+		} else {
+			ce.Hint += " It had no end and starts at or after its first attempt, so any " +
+				"repeat would reach samples collected since: no repeat is offered."
+		}
 		return ce
 	}
 	return err
@@ -54,24 +61,30 @@ func (c *apiClient) DeleteSeries(ctx context.Context, req DeleteSeriesRequest) e
 // fixedWindowDeletePreview is the --dry-run of req with its window spelled
 // out, for a repeat the user confirms. A delete without a start reaches back
 // to the oldest sample, so it starts at the epoch. A delete without an end
-// reached up to the moment it ran, so the preview ends at sent, truncated to
-// the second: a repeat cannot reach samples collected since the first
-// attempt. Both instants are RFC3339, which --from and --to read as written;
-// an epoch number such as 0 would read as a zero look-back, that is now.
-func fixedWindowDeletePreview(req DeleteSeriesRequest, sent time.Time) string {
-	cmd := "prometheus-cli admin delete-series"
-	for _, m := range req.Match {
-		cmd += " --match " + cerrors.ShellArg(m)
-	}
+// reached up to the moment it ran, so the preview ends at sent, to the
+// nanosecond: a repeat cannot reach samples collected since the first
+// attempt. Both instants are RFC3339 with every fraction kept, which --from
+// and --to read as written; an epoch number such as 0 would read as a zero
+// look-back, that is now. There is no such window when the delete had no end
+// and starts at or after sent (only a library caller can send one: the CLI
+// always resolves an end after the start), so ok is false.
+func fixedWindowDeletePreview(req DeleteSeriesRequest, sent time.Time) (preview string, ok bool) {
 	from := time.Unix(0, 0)
 	if !req.Start.IsZero() {
 		from = req.Start
 	}
-	to := sent.Truncate(time.Second)
+	to := sent
 	if !req.End.IsZero() {
 		to = req.End
 	}
-	return cmd + " --from " + previewInstant(from) + " --to " + previewInstant(to) + " --dry-run"
+	if !to.After(from) {
+		return "", false
+	}
+	cmd := "prometheus-cli admin delete-series"
+	for _, m := range req.Match {
+		cmd += " --match " + cerrors.ShellArg(m)
+	}
+	return cmd + " --from " + previewInstant(from) + " --to " + previewInstant(to) + " --dry-run", true
 }
 
 func previewInstant(t time.Time) string {

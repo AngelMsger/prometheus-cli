@@ -91,13 +91,21 @@ Prometheus returns one envelope from every `/api/v1` endpoint:
   `snapshots/` under `storage.tsdb.path`, and a clean-up is safe to repeat.
   A delete stays unknown, because Prometheus can keep listing a series whose
   samples were deleted (even after clean-tombstones), so no read proves it
-  failed. A repeat is the user's call: `DeleteSeries` offers only a
-  `--dry-run` with the window fixed, ending at the first attempt when the
-  delete had no end, so a confirmed repeat cannot reach samples collected since.
-  A library caller can pass its own HTTP client (`transport.Options.Doer`),
-  which keeps its own redirect policy and may follow an admin write anyway, even
-  sending it again on a 307 or 308; the kit still answers the write with the
-  redirect it got first, so the outcome and guidance above hold.
+  failed. A repeat is the user's call: `DeleteSeries` offers only a `--dry-run`
+  with the window fixed, ending at the first attempt (to the nanosecond) when
+  the delete had no end, so a confirmed repeat cannot reach samples collected
+  since. A library caller's delete without an end that starts at or after its
+  first attempt has no such window, and is offered no repeat (the CLI always
+  resolves an end after the start). A library caller can pass its own HTTP
+  client (`transport.Options.Doer`), which keeps its own redirect policy and may
+  follow an admin write anyway, even sending it again on a 307 or 308; the kit
+  still answers the write with the redirect it got first, so the outcome and
+  guidance above hold. The exception is a client that stops following with an
+  error (its `CheckRedirect` refuses a hop, or it reaches its hop limit): the
+  kit returns that error with the redirect, and `do` reports any error as
+  `NETWORK` (exit 8, retryable), without the redirect's status or the admin
+  guidance. The CLI's own client never stops a write that way, since it follows
+  no write at all.
 - **A 404 on an `/admin/` path.** Translated to `ADMIN_API_DISABLED`
   (permission), because that is what it actually means — the server was started
   without `--web.enable-admin-api` — rather than "no such resource".
