@@ -45,45 +45,63 @@ func (c *apiClient) DeleteSeries(ctx context.Context, req DeleteSeriesRequest) e
 		// and no read settles it: Prometheus can keep listing a series whose
 		// samples were deleted. A repeat is the user's call, so the only
 		// command offered is a preview with the window fixed.
-		if preview, ok := fixedWindowDeletePreview(req, sent); ok {
-			ce.Hint += " Repeat it with its window fixed as in the preview below: it ends by " +
-				"the first attempt, so it cannot reach samples collected since."
+		hint, preview := deleteRepeat(req, sent)
+		ce.Hint += hint
+		if preview != "" {
 			ce.NextSteps = append(ce.NextSteps, preview)
-		} else {
-			ce.Hint += " No part of its window can be fixed before the first attempt, so no " +
-				"repeat is offered."
 		}
 		return ce
 	}
 	return err
 }
 
-// fixedWindowDeletePreview is the --dry-run of req with its window fixed, for
-// a repeat the user confirms. The window starts at req's start, or at the
-// epoch for a delete without one, which reaches back to the oldest sample. It
-// ends at req's end or at sent, the first attempt, whichever is earlier, so a
-// repeat cannot reach samples collected since, whatever window req asked for.
-// Both instants are RFC3339 with every fraction kept, which --from and --to
-// read as written; an epoch number such as 0 would read as a zero look-back,
-// that is now. ok is false when that window is empty: req starts at or after
-// the first attempt, or its own end is not after its start.
-func fixedWindowDeletePreview(req DeleteSeriesRequest, sent time.Time) (preview string, ok bool) {
+// deleteRepeat says how a delete a redirect answered can be repeated: the
+// sentence its hint adds, and the --dry-run preview to offer, if any. The
+// preview's window starts at req's start, or at the epoch for a delete
+// without one, which reaches back to the oldest sample. It ends at req's end
+// or at sent, the first attempt, whichever is earlier, so a repeat cannot
+// reach samples collected since, whatever window req asked for; when that
+// cuts req's window short (req has no end, or one after sent), the hint says
+// the part after the first attempt is not repeated. Both instants are RFC3339
+// with every fraction kept, which --from and --to read as written; an epoch
+// number such as 0 would read as a zero look-back, that is now.
+//
+// No preview is offered when req's end is not after its start, which --from
+// and --to cannot express (only a library caller can send one), or when req
+// starts at or after the first attempt, so a repeat could reach only samples
+// collected since. The hint says which.
+func deleteRepeat(req DeleteSeriesRequest, sent time.Time) (hint, preview string) {
 	from := time.Unix(0, 0)
 	if !req.Start.IsZero() {
 		from = req.Start
 	}
-	to := sent
-	if !req.End.IsZero() && req.End.Before(sent) {
-		to = req.End
+	if !req.End.IsZero() && !req.End.After(from) {
+		return " Its window ends at or before its start, which --from and --to cannot " +
+			"express, so no repeat is offered.", ""
 	}
-	if !to.After(from) {
-		return "", false
+	if !sent.After(from) {
+		return " Its window starts at or after the first attempt, so a repeat could reach " +
+			"only samples collected since: no repeat is offered.", ""
+	}
+	to := sent
+	hint = " Repeat it with its window fixed as in the preview below: it ends by the " +
+		"first attempt, so it cannot reach samples collected since."
+	switch {
+	case !req.End.IsZero() && !req.End.After(sent):
+		to = req.End
+	case req.End.IsZero():
+		hint += " The preview stops at the first attempt, " + previewInstant(sent) +
+			", while the delete had no end: the part after it is not repeated."
+	default:
+		hint += " The preview stops at the first attempt, " + previewInstant(sent) +
+			", while the delete asked for an end at " + previewInstant(req.End) +
+			": the part after the first attempt is not repeated."
 	}
 	cmd := "prometheus-cli admin delete-series"
 	for _, m := range req.Match {
 		cmd += " --match " + cerrors.ShellArg(m)
 	}
-	return cmd + " --from " + previewInstant(from) + " --to " + previewInstant(to) + " --dry-run", true
+	return hint, cmd + " --from " + previewInstant(from) + " --to " + previewInstant(to) + " --dry-run"
 }
 
 func previewInstant(t time.Time) string {

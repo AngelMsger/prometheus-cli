@@ -44,8 +44,8 @@ All notable changes to this project are documented here. The format follows
   unknown outcome (Prometheus can keep listing a deleted series, so no read
   settles it); a repeat needs the user's confirmation, and the only command
   offered is a `--dry-run` with the window fixed, ending at the delete's end
-  or the first attempt, whichever is earlier (none when that leaves no
-  window). **Error codes change for
+  or the first attempt, whichever is earlier; the hint says when that leaves
+  part of the window out, or when no repeat is offered. **Error codes change for
   these responses:** 0.5.0 followed a query's redirect as a GET and failed on
   the page behind it with a parse error (exit 10): `DECODE` for an HTML login
   page, `NOT_PROMETHEUS_API` for an empty body or JSON without the

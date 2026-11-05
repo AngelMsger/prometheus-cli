@@ -120,14 +120,14 @@ func TestAdminWriteRedirectIsReported(t *testing.T) {
 // command offered is a --dry-run preview with the window fixed: from the
 // delete's start (or the epoch) to its end or the moment of this attempt,
 // whichever is earlier, so a repeat the user confirms cannot reach samples
-// collected since, even when the delete asked for a window reaching past it.
-// Its --from and --to read back as exactly that window, and the window
-// resolves as the CLI's own --from/--to would. An explicit epoch start used
-// to come out as "0", which --from reads as now, and an end truncated to the
-// second could fall before a start a fraction of a second earlier. A delete
-// whose fixed window would be empty (it starts at or after the attempt, or
-// its own end is not after its start) gets no repeat, and its hint gives no
-// reason that may not hold.
+// collected since, even when the delete asked for a window reaching past it;
+// the hint then says the part after the attempt is not repeated. Its --from
+// and --to read back as exactly that window, and the window resolves as the
+// CLI's own --from/--to would. An explicit epoch start used to come out as
+// "0", which --from reads as now, and an end truncated to the second could
+// fall before a start a fraction of a second earlier. A delete that starts at
+// or after the attempt, or whose own end is not after its start, gets no
+// repeat, and its hint names which.
 func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 	start, end := time.Unix(1700000000, 0), time.Unix(1700003600, 0)
 	before := time.Now()
@@ -142,22 +142,28 @@ func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 		name     string
 		req      DeleteSeriesRequest
 		from, to time.Time // a zero to is the moment of the attempt
-		noRepeat bool
+		cut      string    // the hint's note that the preview stops short, if any
+		noRepeat string    // the hint's reason for no repeat, if none is offered
 	}{
-		{"with a window", DeleteSeriesRequest{Match: []string{`up{job="x"}`, "down"}, Start: start, End: end}, start, end, false},
-		{"up to an end", DeleteSeriesRequest{Match: []string{"up"}, End: end}, time.Unix(0, 0), end, false},
-		{"without a window", DeleteSeriesRequest{Match: []string{"up"}}, time.Unix(0, 0), time.Time{}, false},
-		{"from the epoch", DeleteSeriesRequest{Match: []string{"up"}, Start: time.Unix(0, 0), End: end}, time.Unix(0, 0), end, false},
-		{"from a fraction of a second", DeleteSeriesRequest{Match: []string{"up"}, Start: start.Add(250 * time.Millisecond), End: end},
-			start.Add(250 * time.Millisecond), end, false},
-		{"without an end", DeleteSeriesRequest{Match: []string{"up"}, Start: start}, start, time.Time{}, false},
-		{"without an end, from just before the attempt", DeleteSeriesRequest{Match: []string{"up"}, Start: justBefore},
-			justBefore, time.Time{}, false},
-		{"to an end after the attempt", DeleteSeriesRequest{Match: []string{"up"}, Start: start, End: later}, start, time.Time{}, false},
-		{"wholly after the attempt", DeleteSeriesRequest{Match: []string{"up"}, Start: later, End: muchLater}, time.Time{}, time.Time{}, true},
-		{"without an end, after the attempt", DeleteSeriesRequest{Match: []string{"up"}, Start: later}, time.Time{}, time.Time{}, true},
-		{"with an end equal to its start", DeleteSeriesRequest{Match: []string{"up"}, Start: start, End: start}, time.Time{}, time.Time{}, true},
-		{"with an end before its start", DeleteSeriesRequest{Match: []string{"up"}, Start: end, End: start}, time.Time{}, time.Time{}, true},
+		{name: "with a window", req: DeleteSeriesRequest{Match: []string{`up{job="x"}`, "down"}, Start: start, End: end}, from: start, to: end},
+		{name: "up to an end", req: DeleteSeriesRequest{Match: []string{"up"}, End: end}, from: time.Unix(0, 0), to: end},
+		{name: "without a window", req: DeleteSeriesRequest{Match: []string{"up"}}, from: time.Unix(0, 0), cut: "had no end"},
+		{name: "from the epoch", req: DeleteSeriesRequest{Match: []string{"up"}, Start: time.Unix(0, 0), End: end}, from: time.Unix(0, 0), to: end},
+		{name: "from a fraction of a second", req: DeleteSeriesRequest{Match: []string{"up"}, Start: start.Add(250 * time.Millisecond), End: end},
+			from: start.Add(250 * time.Millisecond), to: end},
+		{name: "without an end", req: DeleteSeriesRequest{Match: []string{"up"}, Start: start}, from: start, cut: "had no end"},
+		{name: "without an end, from just before the attempt", req: DeleteSeriesRequest{Match: []string{"up"}, Start: justBefore},
+			from: justBefore, cut: "had no end"},
+		{name: "to an end after the attempt", req: DeleteSeriesRequest{Match: []string{"up"}, Start: start, End: later},
+			from: start, cut: "asked for an end at " + later.UTC().Format(time.RFC3339Nano)},
+		{name: "wholly after the attempt", req: DeleteSeriesRequest{Match: []string{"up"}, Start: later, End: muchLater},
+			noRepeat: "starts at or after the first attempt"},
+		{name: "without an end, after the attempt", req: DeleteSeriesRequest{Match: []string{"up"}, Start: later},
+			noRepeat: "starts at or after the first attempt"},
+		{name: "with an end equal to its start", req: DeleteSeriesRequest{Match: []string{"up"}, Start: start, End: start},
+			noRepeat: "ends at or before its start"},
+		{name: "with an end before its start", req: DeleteSeriesRequest{Match: []string{"up"}, Start: end, End: start},
+			noRepeat: "ends at or before its start"},
 	} {
 		var bodyless int
 		client := newRedirectedClient(t, redirectingServer(http.StatusFound, &bodyless))
@@ -167,8 +173,9 @@ func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 			t.Fatalf("%s: got %+v; want an unknown outcome that a repeat needs the user for", tc.name, ce)
 		}
 		requireNoRepeat(t, tc.name, ce)
-		if tc.noRepeat {
-			if !strings.Contains(ce.Hint, "no repeat is offered") || strings.Contains(ce.Hint, "preview below") {
+		if tc.noRepeat != "" {
+			if !strings.Contains(ce.Hint, tc.noRepeat) || !strings.Contains(ce.Hint, "no repeat is offered") ||
+				strings.Contains(ce.Hint, "preview below") {
 				t.Fatalf("%s: hint %q; want no repeat offered", tc.name, ce.Hint)
 			}
 			for _, step := range ce.NextSteps {
@@ -202,6 +209,13 @@ func TestRedirectedDeleteStaysUnknown(t *testing.T) {
 			}
 		} else if !to.Equal(tc.to) {
 			t.Fatalf("%s: --to %q is %v; want %v", tc.name, toArg, to, tc.to)
+		}
+		cutNote := "The preview stops at the first attempt, " + toArg + ", while the delete " + tc.cut
+		if tc.cut != "" && (!strings.Contains(ce.Hint, cutNote) || !strings.Contains(ce.Hint, "is not repeated")) {
+			t.Fatalf("%s: hint %q; want it to say the preview stops at %s, short of the window asked for", tc.name, ce.Hint, toArg)
+		}
+		if tc.cut == "" && strings.Contains(ce.Hint, "is not repeated") {
+			t.Fatalf("%s: hint %q says the preview stops short of a window it covers", tc.name, ce.Hint)
 		}
 	}
 }

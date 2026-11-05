@@ -95,17 +95,20 @@ Prometheus returns one envelope from every `/api/v1` endpoint:
   with the window fixed, from the delete's start (or the epoch) to its end or
   the first attempt, whichever is earlier, to the nanosecond, so a confirmed
   repeat cannot reach samples collected since, even when the delete asked for a
-  window reaching past it. A delete whose fixed window would be empty (it starts
-  at or after the first attempt, or a library caller sent an end not after its
-  start) is offered no repeat. A library caller can pass its own HTTP client
-  (`transport.Options.Doer`), which keeps its own redirect policy and may follow
-  an admin write anyway, even sending it again on a 307 or 308; the kit still
-  answers the write with the redirect it got first, so the outcome and guidance
-  above hold. The exception is a client that stops following with an error (its
-  `CheckRedirect` refuses a hop, or it reaches its hop limit): the kit returns
-  that error with the redirect, and `do` reports any error as `NETWORK` (exit 8,
-  retryable), without the redirect's status or the admin guidance. The CLI's own
-  client never stops a write that way, since it follows no write at all.
+  window reaching past it. When that cuts the window short (no end, or an end
+  after the first attempt), the hint says the part after the first attempt is
+  not repeated. No repeat is offered for a delete that starts at or after the
+  first attempt, nor for a library caller's whose end is not after its start,
+  which `--from` and `--to` cannot express; the hint says which. A library
+  caller can pass its own HTTP client (`transport.Options.Doer`), which keeps
+  its own redirect policy and may follow an admin write anyway, even sending it
+  again on a 307 or 308; the kit still answers the write with the redirect it
+  got first, so the outcome and guidance above hold. The exception is a client
+  that stops following with an error (its `CheckRedirect` refuses a hop, or it
+  reaches its hop limit): the kit returns that error with the redirect, and `do`
+  reports any error as `NETWORK` (exit 8, retryable), without the redirect's
+  status or the admin guidance. The CLI's own client never stops a write that
+  way, since it follows no write at all.
 - **A 404 on an `/admin/` path.** Translated to `ADMIN_API_DISABLED`
   (permission), because that is what it actually means — the server was started
   without `--web.enable-admin-api` — rather than "no such resource".
