@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -77,11 +78,9 @@ func TestPostedQueryRedirectIsReported(t *testing.T) {
 // An admin write is never followed through a redirect, so its redirect comes
 // back as itself, not as a delete that a login page confirmed. A proxy can
 // pass the write on before it redirects, so the hint says the write may have
-// applied, and each write names the check that fits it: the deleted series
-// over the delete's own window, the snapshot directory, or that repeating a
-// clean-up is safe.
+// applied. Each write says what fits it: a snapshot points at the snapshot
+// directory, a clean-up is safe to repeat, and a delete stays unknown.
 func TestAdminWriteRedirectIsReported(t *testing.T) {
-	start, end := time.Unix(1700000000, 0), time.Unix(1700003600, 0)
 	writes := []struct {
 		name  string
 		write func(Client) error
@@ -89,17 +88,8 @@ func TestAdminWriteRedirectIsReported(t *testing.T) {
 		step  string
 	}{
 		{"delete series", func(c Client) error {
-			return c.DeleteSeries(context.Background(), DeleteSeriesRequest{
-				Match: []string{`up{job="x"}`, "down"}, Start: start, End: end})
-		}, "series still listed were not deleted",
-			`prometheus-cli series list --match 'up{job="x"}' --match 'down' --from 1700000000 --to 1700003600`},
-		{"delete series without a window", func(c Client) error {
 			return c.DeleteSeries(context.Background(), DeleteSeriesRequest{Match: []string{"up"}})
-		}, "series still listed were not deleted", `prometheus-cli series list --match 'up'`},
-		{"delete series up to an end", func(c Client) error {
-			return c.DeleteSeries(context.Background(), DeleteSeriesRequest{Match: []string{"up"}, End: end})
-		}, "series still listed were not deleted",
-			`prometheus-cli series list --match 'up' --from 1970-01-01T00:00:00Z --to 1700003600`},
+		}, "outcome stays unknown", ""},
 		{"clean tombstones", func(c Client) error { return c.CleanTombstones(context.Background()) },
 			"Repeating it is safe", ""},
 		{"snapshot", func(c Client) error {
@@ -120,6 +110,62 @@ func TestAdminWriteRedirectIsReported(t *testing.T) {
 				t.Fatalf("%s %d: next steps %q; want the check %q last", w.name, status, ce.NextSteps, w.step)
 			}
 		}
+	}
+}
+
+// A delete that a redirect answered has an unknown outcome, and nothing the
+// CLI reads settles it: Prometheus can keep listing a series after its
+// samples were deleted, even after clean-tombstones. So no step calls a
+// series list proof that the delete failed, and none repeats it. The only
+// command offered is a --dry-run preview with the window fixed: from the
+// delete's start (or the epoch) to its end, or, for a delete without one, to
+// the moment of this attempt, so a repeat the user confirms cannot reach
+// samples collected since.
+func TestRedirectedDeleteStaysUnknown(t *testing.T) {
+	start, end := time.Unix(1700000000, 0), time.Unix(1700003600, 0)
+	for _, tc := range []struct {
+		name   string
+		req    DeleteSeriesRequest
+		window string
+	}{
+		{"with a window", DeleteSeriesRequest{Match: []string{`up{job="x"}`, "down"}, Start: start, End: end},
+			"--from 1700000000 --to 1700003600"},
+		{"up to an end", DeleteSeriesRequest{Match: []string{"up"}, End: end},
+			"--from 1970-01-01T00:00:00Z --to 1700003600"},
+	} {
+		var bodyless int
+		client := newRedirectedClient(t, redirectingServer(http.StatusFound, &bodyless))
+		ce := cerrors.AsCLIError(client.DeleteSeries(context.Background(), tc.req))
+		if ce == nil || ce.Retryable || strings.Contains(ce.Hint, "were not deleted") ||
+			!strings.Contains(ce.Hint, "only if the user confirms") {
+			t.Fatalf("%s: got %+v; want an unknown outcome that a repeat needs the user for", tc.name, ce)
+		}
+		preview := ce.NextSteps[len(ce.NextSteps)-1]
+		matches := ""
+		for _, m := range tc.req.Match {
+			matches += " --match " + cerrors.ShellArg(m)
+		}
+		if preview != "prometheus-cli admin delete-series"+matches+" "+tc.window+" --dry-run" {
+			t.Fatalf("%s: last step %q; want a dry run with the fixed window %q", tc.name, preview, tc.window)
+		}
+		for _, step := range ce.NextSteps {
+			if strings.Contains(step, "series list") || strings.Contains(step, "--yes") {
+				t.Fatalf("%s: step %q reads the outcome or repeats the delete", tc.name, step)
+			}
+		}
+	}
+
+	// Without an end, the fixed window ends at the attempt.
+	before := time.Now().Truncate(time.Second)
+	var bodyless int
+	client := newRedirectedClient(t, redirectingServer(http.StatusFound, &bodyless))
+	ce := cerrors.AsCLIError(client.DeleteSeries(context.Background(), DeleteSeriesRequest{Match: []string{"up"}}))
+	preview := ce.NextSteps[len(ce.NextSteps)-1]
+	_, to, ok := strings.Cut(strings.TrimSuffix(preview, " --dry-run"), " --to ")
+	sec, err := strconv.ParseInt(to, 10, 64)
+	if !ok || err != nil || sec < before.Unix() || sec > time.Now().Unix() ||
+		!strings.Contains(preview, "--from 1970-01-01T00:00:00Z") {
+		t.Fatalf("last step %q; want the window fixed at the attempt", preview)
 	}
 }
 

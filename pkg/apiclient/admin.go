@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/url"
 	"strings"
+	"time"
 
 	cerrors "github.com/angelmsger/prometheus-cli/pkg/errors"
 	"github.com/angelmsger/prometheus-cli/pkg/timeutil"
@@ -38,37 +39,39 @@ func (c *apiClient) DeleteSeries(ctx context.Context, req DeleteSeriesRequest) e
 				"Confirm the exact set first.").
 			WithNextSteps("prometheus-cli series list --match '<selector>' --since 1h")
 	}
+	sent := time.Now()
 	_, err := c.post(ctx, apiPath(pathDeleteSeries), deleteSeriesForm(req))
 	if ce := cerrors.AsCLIError(err); ce != nil && ce.HTTPStatus >= 300 && ce.HTTPStatus < 400 {
-		// A redirect leaves the delete's outcome unknown (see httpError):
-		// its own series over its own window show whether it applied.
-		ce.NextSteps = append(ce.NextSteps, deletedSeriesCheck(req))
+		// A redirect leaves the delete's outcome unknown (see httpError),
+		// and no read settles it: Prometheus can keep listing a series whose
+		// samples were deleted. A repeat is the user's call, so the only
+		// command offered is a preview with the window fixed.
+		ce.NextSteps = append(ce.NextSteps, fixedWindowDeletePreview(req, sent))
 		return ce
 	}
 	return err
 }
 
-// deletedSeriesCheck is the read that shows whether a delete applied: the
-// series its selectors match over its window, which a delete stops listing.
-func deletedSeriesCheck(req DeleteSeriesRequest) string {
-	cmd := "prometheus-cli series list"
+// fixedWindowDeletePreview is the --dry-run of req with its window spelled
+// out, for a repeat the user confirms. A delete without a start reaches back
+// to the oldest sample, so it starts at the epoch (the CLI reads a bare 0 as
+// no time). A delete without an end reached up to the moment it ran, so the
+// preview ends at sent, truncated to the second: a repeat cannot reach
+// samples collected since the first attempt.
+func fixedWindowDeletePreview(req DeleteSeriesRequest, sent time.Time) string {
+	cmd := "prometheus-cli admin delete-series"
 	for _, m := range req.Match {
 		cmd += " --match " + cerrors.ShellArg(m)
 	}
-	if req.Start.IsZero() && req.End.IsZero() {
-		return cmd
-	}
-	// Without a start the delete reaches back to the oldest sample. The
-	// CLI reads a bare 0 as no time, so the epoch is spelled out.
 	from := "1970-01-01T00:00:00Z"
 	if !req.Start.IsZero() {
 		from = timeutil.FormatInstant(req.Start)
 	}
-	cmd += " --from " + from
+	to := sent.Truncate(time.Second)
 	if !req.End.IsZero() {
-		cmd += " --to " + timeutil.FormatInstant(req.End)
+		to = req.End
 	}
-	return cmd
+	return cmd + " --from " + from + " --to " + timeutil.FormatInstant(to) + " --dry-run"
 }
 
 // CleanTombstones removes deleted blocks from disk immediately.

@@ -39,9 +39,12 @@ All notable changes to this project are documented here. The format follows
   without the query; any redirect of an admin write, which is never sent
   again; and a redirect Go cannot follow, such as one without a `Location`.
   An admin write's hint adds that the write may still have applied behind
-  the redirect and how to tell: `delete-series` lists its own series over
-  its own window, `snapshot` points at the snapshots directory, and
-  `clean-tombstones` says repeating it is safe. **Error codes change for
+  the redirect: `snapshot` points at the snapshots directory,
+  `clean-tombstones` says repeating it is safe, and `delete-series` stays an
+  unknown outcome (Prometheus can keep listing a deleted series, so no read
+  settles it); a repeat needs the user's confirmation, and the only command
+  offered is a `--dry-run` with the window fixed, ending at the first
+  attempt when the delete had no end. **Error codes change for
   these responses:** 0.5.0 followed a query's redirect as a GET and failed on
   the page behind it with a parse error (exit 10): `DECODE` for an HTML login
   page, `NOT_PROMETHEUS_API` for an empty body or JSON without the

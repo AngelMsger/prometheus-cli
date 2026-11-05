@@ -87,10 +87,14 @@ Prometheus returns one envelope from every `/api/v1` endpoint:
   followed redirect failed as a parse error: `DECODE` for an HTML login page,
   `NOT_PROMETHEUS_API` for an empty body or JSON without the envelope. A
   proxy can pass an admin write on before it redirects, so an admin write's
-  hint adds that the write may still have applied and how to tell:
-  `DeleteSeries` appends a `series list` of its own selectors over its own
-  window (series still listed were not deleted), a snapshot points at
+  hint adds that the write may still have applied: a snapshot points at
   `snapshots/` under `storage.tsdb.path`, and a clean-up is safe to repeat.
+  A delete stays unknown, because Prometheus can keep listing a series whose
+  samples were deleted (even after clean-tombstones), so no read proves it
+  failed. A repeat is the user's call: `DeleteSeries` offers only a
+  `--dry-run` with the window fixed, ending at the first attempt when the
+  delete had no end, so a confirmed repeat cannot reach samples collected
+  since.
 - **A 404 on an `/admin/` path.** Translated to `ADMIN_API_DISABLED`
   (permission), because that is what it actually means — the server was started
   without `--web.enable-admin-api` — rather than "no such resource".
