@@ -82,8 +82,13 @@ Prometheus returns one envelope from every `/api/v1` endpoint:
   `transport.AsRead`: they are retried like a GET and follow a 307 or 308,
   which sends the same form again. A 301, 302 or 303 would become a GET
   without the query, and an admin write is never followed, so those come back
-  as `HTTP_<STATUS>` (server, not retryable) with a hint on the URL, as does a
-  redirect Go cannot follow (no `Location`). Before, the page behind a
+  as `HTTP_<STATUS>` (server, not retryable) with a hint on the URL, as do a
+  redirect Go cannot follow (no `Location`) and a read's tenth hop.
+  `redirectError` builds them with the kit's redirect rule
+  (`CLIError.WithRedirect`), whose hint names where the redirect points
+  (scheme and host) and `--base-url`; `doctor` reports such a check as
+  `redirected` (agent-cli-kit's `doctor` package), with the hint in its
+  detail. Before, the page behind a
   followed redirect failed as a parse error: `DECODE` for an HTML login page,
   `NOT_PROMETHEUS_API` for an empty body or JSON without the envelope. A
   proxy can pass an admin write on before it redirects, so an admin write's

@@ -111,8 +111,9 @@ fi
   a write the user authorized.
 - **A redirect: `HTTP_FOUND`, `HTTP_TEMPORARY_REDIRECT` and the other 3xx
   codes (server/9, not retryable)** — something in front of Prometheus
-  redirected the request: a login page, a single sign-on proxy, or a
-  `--base-url` that should use https or name the server root. The same
+  redirected the request (the hint names where to): a login page, a single
+  sign-on proxy, or a `--base-url` that should use https or name the server
+  root. The same
   request is redirected again, so fix the URL (`doctor`) instead of retrying.
   For an admin write, the write may still have applied behind the redirect:
   follow its hint. A `delete-series` stays unknown (a series list can still
