@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-10
+
 ### Added
 
 - `pkg/apiclient` exports `Reader` and `Writer`; `Client` is now their union,
@@ -313,7 +315,8 @@ sibling `openobserve-cli` / `jenkins-cli` / `confluence-cli` / `bitbucket-cli` /
 - Base URLs ending in `/api/v1` are trimmed back to the server root at both the
   client and the persistence boundary.
 
-[Unreleased]: https://github.com/AngelMsger/prometheus-cli/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/AngelMsger/prometheus-cli/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/AngelMsger/prometheus-cli/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/AngelMsger/prometheus-cli/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/AngelMsger/prometheus-cli/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/AngelMsger/prometheus-cli/compare/v0.3.0...v0.4.0
